@@ -7,10 +7,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.alabadla.internetcardledger.data.backup.BackupDocument
 import com.alabadla.internetcardledger.data.repository.BackupRepository
+import com.alabadla.internetcardledger.security.PinSecurityManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class BackupPreview(
     val createdAt: Long,
@@ -29,7 +32,10 @@ sealed interface BackupUiState {
     data class Error(val message: String) : BackupUiState
 }
 
-class BackupViewModel(private val repository: BackupRepository) : ViewModel() {
+class BackupViewModel(
+    private val repository: BackupRepository,
+    private val pinSecurity: PinSecurityManager,
+) : ViewModel() {
     private val _state = MutableStateFlow<BackupUiState>(BackupUiState.Idle)
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
     private var inspectedDocument: BackupDocument? = null
@@ -71,6 +77,16 @@ class BackupViewModel(private val repository: BackupRepository) : ViewModel() {
         )
     }
 
+    fun verifyPin(pin: String, result: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val valid = withContext(Dispatchers.Default) {
+                runCatching { pinSecurity.verify(pin) }.getOrDefault(false)
+            }
+            if (!valid) _state.value = BackupUiState.Error("الرقم السري غير صحيح.")
+            result(valid)
+        }
+    }
+
     fun dismissMessage() {
         if (_state.value is BackupUiState.Success || _state.value is BackupUiState.Error) {
             _state.value = BackupUiState.Idle
@@ -102,11 +118,11 @@ class BackupViewModel(private val repository: BackupRepository) : ViewModel() {
     )
 
     companion object {
-        fun factory(repository: BackupRepository): ViewModelProvider.Factory =
+        fun factory(repository: BackupRepository, pinSecurity: PinSecurityManager): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                    BackupViewModel(repository) as T
+                    BackupViewModel(repository, pinSecurity) as T
             }
     }
 }

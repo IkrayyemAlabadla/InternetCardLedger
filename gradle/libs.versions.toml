@@ -15,9 +15,11 @@ lifecycle = "2.11.0"
 navigation = "2.10.2"
 room = "2.8.5"
 playServicesNearby = "19.3.0"
+securityCrypto = "1.1.0-alpha06"
 kotlin = "2.3.21"
 
 [libraries]
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 play-services-nearby = { group = "com.google.android.gms", name = "play-services-nearby", version.ref = "playServicesNearby" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

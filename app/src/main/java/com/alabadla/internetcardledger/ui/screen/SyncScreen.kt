@@ -142,7 +142,6 @@ fun SyncScreen(
                     items(approvedDevices, key = { it.deviceId }) { device ->
                         ApprovedDeviceCard(
                             device = device,
-                            onRemove = { viewModel.removeApprovedDevice(device.deviceId) },
                         )
                     }
                 }
@@ -332,7 +331,6 @@ private fun StageCard(
 @Composable
 private fun ApprovedDeviceCard(
     device: ApprovedDeviceEntity,
-    onRemove: () -> Unit,
 ) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -350,12 +348,7 @@ private fun ApprovedDeviceCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            TextButton(onClick = onRemove) {
-                Text(
-                    stringResource(R.string.action_remove_device),
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
+            Text("تُدار إزالة الاعتماد من الإعدادات", style = MaterialTheme.typography.bodySmall)
         }
     }
 }

@@ -39,11 +39,12 @@ import com.alabadla.internetcardledger.ui.viewmodel.BackupViewModel
 import java.util.Date
 
 @Composable
-fun BackupScreen(viewModel: BackupViewModel, onBack: () -> Unit) {
+fun BackupScreen(viewModel: BackupViewModel, onBack: () -> Unit, onForgotPin: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showReplaceWarning by remember { mutableStateOf(false) }
     var showFinalReplaceConfirmation by remember { mutableStateOf(false) }
+    var protectedAction by remember { mutableStateOf<String?>(null) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) viewModel.export(context.contentResolver, uri)
     }
@@ -63,7 +64,7 @@ fun BackupScreen(viewModel: BackupViewModel, onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
             ) { Text(stringResource(R.string.backup_export), style = MaterialTheme.typography.titleMedium) }
             OutlinedButton(
-                onClick = { importLauncher.launch(arrayOf("application/json", "text/json", "text/plain")) },
+                onClick = { protectedAction = "restore" },
                 enabled = state !is BackupUiState.Working,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
             ) { Text(stringResource(R.string.backup_choose_restore), style = MaterialTheme.typography.titleMedium) }
@@ -81,12 +82,29 @@ fun BackupScreen(viewModel: BackupViewModel, onBack: () -> Unit) {
                 is BackupUiState.Ready -> RestoreSummary(
                     preview = current.preview,
                     onMerge = viewModel::merge,
-                    onReplace = { showReplaceWarning = true },
+                    onReplace = { protectedAction = "replace" },
                 )
                 is BackupUiState.Success -> StatusCard(current.message, isError = false, viewModel::dismissMessage)
                 is BackupUiState.Error -> StatusCard(current.message, isError = true, viewModel::dismissMessage)
             }
         }
+    }
+
+    protectedAction?.let { action ->
+        PinDialog(
+            title = if (action == "restore") "أدخل الرقم السري قبل الاستعادة" else "أدخل الرقم السري قبل استبدال البيانات",
+            onDismiss = { protectedAction = null },
+            onForgotPin = { protectedAction = null; onForgotPin() },
+            onConfirm = { pin ->
+                viewModel.verifyPin(pin) { valid ->
+                    if (valid) {
+                        protectedAction = null
+                        if (action == "restore") importLauncher.launch(arrayOf("application/json", "text/json", "text/plain"))
+                        else showReplaceWarning = true
+                    }
+                }
+            },
+        )
     }
 
     if (showReplaceWarning) {

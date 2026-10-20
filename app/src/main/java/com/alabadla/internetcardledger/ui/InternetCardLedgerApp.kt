@@ -1,7 +1,5 @@
 package com.alabadla.internetcardledger.ui
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -15,13 +13,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.alabadla.internetcardledger.LedgerApplication
-import com.alabadla.internetcardledger.R
 import com.alabadla.internetcardledger.ui.screen.BackupScreen
 import com.alabadla.internetcardledger.ui.screen.ConflictReviewScreen
 import com.alabadla.internetcardledger.ui.screen.CustomersScreen
 import com.alabadla.internetcardledger.ui.screen.HistoryScreen
 import com.alabadla.internetcardledger.ui.screen.HomeScreen
-import com.alabadla.internetcardledger.ui.screen.PlaceholderScreen
+import com.alabadla.internetcardledger.ui.screen.OnboardingScreen
+import com.alabadla.internetcardledger.ui.screen.SettingsScreen
 import com.alabadla.internetcardledger.ui.screen.SalesScreen
 import com.alabadla.internetcardledger.ui.screen.SyncScreen
 import com.alabadla.internetcardledger.ui.theme.InternetCardLedgerTheme
@@ -30,6 +28,7 @@ import com.alabadla.internetcardledger.ui.viewmodel.CustomersViewModel
 import com.alabadla.internetcardledger.ui.viewmodel.DashboardViewModel
 import com.alabadla.internetcardledger.ui.viewmodel.SalesViewModel
 import com.alabadla.internetcardledger.ui.viewmodel.SyncViewModel
+import com.alabadla.internetcardledger.ui.viewmodel.SettingsViewModel
 
 private object Routes {
     const val HOME = "home"
@@ -48,13 +47,27 @@ private object Routes {
 fun InternetCardLedgerApp() {
     InternetCardLedgerTheme {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-            LedgerNavigation(navController = rememberNavController())
+            val application = LocalContext.current.applicationContext as LedgerApplication
+            val settingsViewModel: SettingsViewModel = viewModel(
+                factory = SettingsViewModel.factory(
+                    application.container.settingsRepository,
+                    application.container.pinSecurityManager,
+                ),
+            )
+            val settingsState by settingsViewModel.state.collectAsStateWithLifecycle()
+            if (settingsState.loading) {
+                androidx.compose.material3.CircularProgressIndicator()
+            } else if (settingsState.settings?.onboardingComplete == true) {
+                LedgerNavigation(navController = rememberNavController(), settingsViewModel = settingsViewModel)
+            } else {
+                OnboardingScreen(settingsViewModel)
+            }
         }
     }
 }
 
 @Composable
-private fun LedgerNavigation(navController: NavHostController) {
+private fun LedgerNavigation(navController: NavHostController, settingsViewModel: SettingsViewModel) {
     NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
             val application = LocalContext.current.applicationContext as LedgerApplication
@@ -177,20 +190,33 @@ private fun LedgerNavigation(navController: NavHostController) {
             )
         }
         composable(Routes.SETTINGS) {
-            PlaceholderScreen(
-                titleResource = R.string.action_settings,
-                messageResource = R.string.settings_placeholder,
-                icon = Icons.Default.Settings,
-                iconDescriptionResource = R.string.icon_settings_description,
+            val application = LocalContext.current.applicationContext as LedgerApplication
+            val backupViewModel: BackupViewModel = viewModel(
+                factory = BackupViewModel.factory(
+                    application.container.backupRepository,
+                    application.container.pinSecurityManager,
+                ),
+            )
+            SettingsScreen(
+                viewModel = settingsViewModel,
+                backupViewModel = backupViewModel,
+                onBackup = { navController.navigate(Routes.BACKUP) },
                 onBack = navController::navigateUp,
             )
         }
         composable(Routes.BACKUP) {
             val application = LocalContext.current.applicationContext as LedgerApplication
             val backupViewModel: BackupViewModel = viewModel(
-                factory = BackupViewModel.factory(application.container.backupRepository),
+                factory = BackupViewModel.factory(
+                    application.container.backupRepository,
+                    application.container.pinSecurityManager,
+                ),
             )
-            BackupScreen(viewModel = backupViewModel, onBack = navController::navigateUp)
+            BackupScreen(
+                viewModel = backupViewModel,
+                onBack = navController::navigateUp,
+                onForgotPin = { navController.navigate(Routes.SETTINGS) },
+            )
         }
     }
 }

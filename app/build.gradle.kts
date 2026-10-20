@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.security.crypto)
     implementation(libs.play.services.nearby)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.material)
