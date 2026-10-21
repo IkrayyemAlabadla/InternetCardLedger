@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,14 +43,17 @@ import java.util.Date
 fun BackupScreen(viewModel: BackupViewModel, onBack: () -> Unit, onForgotPin: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var showReplaceWarning by remember { mutableStateOf(false) }
-    var showFinalReplaceConfirmation by remember { mutableStateOf(false) }
-    var protectedAction by remember { mutableStateOf<String?>(null) }
+    var showReplaceWarning by rememberSaveable { mutableStateOf(false) }
+    var showFinalReplaceConfirmation by rememberSaveable { mutableStateOf(false) }
+    var protectedAction by rememberSaveable { mutableStateOf<String?>(null) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) viewModel.export(context.contentResolver, uri)
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.inspect(context.contentResolver, uri)
+    }
+    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) viewModel.exportCsv(context.contentResolver, uri)
     }
 
     Scaffold(topBar = { SecondaryTopBar(title = stringResource(R.string.backup_title), onBack = onBack) }) { padding ->
@@ -58,11 +62,17 @@ fun BackupScreen(viewModel: BackupViewModel, onBack: () -> Unit, onForgotPin: ()
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Text(stringResource(R.string.backup_explanation), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.backup_picker_drive_hint), style = MaterialTheme.typography.bodyLarge)
             Button(
                 onClick = { exportLauncher.launch("internet-card-ledger-backup.json") },
                 enabled = state !is BackupUiState.Working,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
             ) { Text(stringResource(R.string.backup_export), style = MaterialTheme.typography.titleMedium) }
+            OutlinedButton(
+                onClick = { csvLauncher.launch("internet-card-ledger.csv") },
+                enabled = state !is BackupUiState.Working,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+            ) { Text(stringResource(R.string.backup_export_csv), style = MaterialTheme.typography.titleMedium) }
             OutlinedButton(
                 onClick = { protectedAction = "restore" },
                 enabled = state !is BackupUiState.Working,
@@ -92,7 +102,7 @@ fun BackupScreen(viewModel: BackupViewModel, onBack: () -> Unit, onForgotPin: ()
 
     protectedAction?.let { action ->
         PinDialog(
-            title = if (action == "restore") "أدخل الرقم السري قبل الاستعادة" else "أدخل الرقم السري قبل استبدال البيانات",
+            title = stringResource(if (action == "restore") R.string.pin_required_restore else R.string.pin_required_replace),
             onDismiss = { protectedAction = null },
             onForgotPin = { protectedAction = null; onForgotPin() },
             onConfirm = { pin ->

@@ -96,8 +96,8 @@ fun SyncScreen(
                 item {
                     StageCard(
                         uiState = uiState,
-                        onApprove = { endpointId, name ->
-                            viewModel.approveConnection(endpointId, name)
+                        onApprove = { endpointId, _ ->
+                            viewModel.approveConnection(endpointId)
                         },
                         onReject = viewModel::rejectConnection,
                         onCancel = viewModel::stopSync,
@@ -162,6 +162,11 @@ fun SyncScreen(
                             .fillMaxWidth()
                             .heightIn(min = 56.dp)
                             .padding(top = 16.dp),
+                        enabled = uiState.transportState.stage in listOf(
+                            TransportStage.IDLE,
+                            TransportStage.SUCCESS,
+                            TransportStage.FAILED,
+                        ),
                     ) {
                         Text(
                             stringResource(R.string.action_start_sync),
@@ -211,7 +216,7 @@ private fun DeviceIdentityCard(uiState: SyncUiState) {
                 stringResource(R.string.sync_role_secondary)
             }
             Text(
-                text = identity?.deviceName ?: "هاتف محلي",
+                text = identity?.deviceName ?: stringResource(R.string.sync_local_device),
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
@@ -272,7 +277,7 @@ private fun StageCard(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(
-                        text = "تم العثور على: ${endpoint.deviceName}",
+                        text = stringResource(R.string.sync_found_device_name, endpoint.deviceName),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     Text(
@@ -282,21 +287,21 @@ private fun StageCard(
                     )
 
                     if (tState.stage == TransportStage.WAITING_APPROVAL) {
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Button(
                                 onClick = { onApprove(endpoint.endpointId, endpoint.deviceName) },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                             ) {
                                 Text(stringResource(R.string.action_approve_connection))
                             }
                             OutlinedButton(
                                 onClick = { onReject(endpoint.endpointId) },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                             ) {
                                 Text(stringResource(R.string.action_cancel))
                             }
@@ -343,12 +348,12 @@ private fun ApprovedDeviceCard(
             Column {
                 Text(text = device.deviceName, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    text = "معتمد من الجهاز الرئيسي",
+                    text = stringResource(R.string.sync_device_approved),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text("تُدار إزالة الاعتماد من الإعدادات", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.approved_devices_managed_settings), style = MaterialTheme.typography.bodySmall)
         }
     }
 }

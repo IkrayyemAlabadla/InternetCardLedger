@@ -75,6 +75,9 @@ object BackupJsonCodec {
             if (sale.description.isBlank() || sale.quantity <= 0 || sale.unitPriceMinor < 0L || sale.soldAt <= 0L) {
                 invalid("تحتوي النسخة على سجل بيع غير صالح.")
             }
+            if (runCatching { Math.multiplyExact(sale.quantity.toLong(), sale.unitPriceMinor) }.isFailure) {
+                invalid("تحتوي النسخة على قيمة بيع أكبر من الحد المسموح.")
+            }
             if (sale.customerId != null && sale.customerId !in customerIds) {
                 invalid("تحتوي النسخة على بيع مرتبط بزبون غير موجود.")
             }

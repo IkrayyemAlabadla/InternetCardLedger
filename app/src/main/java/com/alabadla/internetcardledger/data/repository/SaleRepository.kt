@@ -41,6 +41,7 @@ class SaleRepository(
         require(description.isNotBlank()) { "Sale description cannot be blank" }
         require(quantity > 0) { "Sale quantity must be positive" }
         require(unitPriceMinor >= 0) { "Unit price cannot be negative" }
+        Math.multiplyExact(quantity.toLong(), unitPriceMinor)
         val timestamp = currentTimeMillis()
         val id = newId()
         val sale = SaleEntity(
@@ -66,6 +67,7 @@ class SaleRepository(
         require(sale.description.isNotBlank()) { "Sale description cannot be blank" }
         require(sale.quantity > 0) { "Sale quantity must be positive" }
         require(sale.unitPriceMinor >= 0) { "Unit price cannot be negative" }
+        Math.multiplyExact(sale.quantity.toLong(), sale.unitPriceMinor)
         val updated = sale.copy(
             description = sale.description.trim(),
             notes = sale.notes?.trim()?.takeIf(String::isNotEmpty),

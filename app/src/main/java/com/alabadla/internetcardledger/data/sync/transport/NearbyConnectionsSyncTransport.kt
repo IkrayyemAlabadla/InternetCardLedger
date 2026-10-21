@@ -16,12 +16,15 @@ import com.google.android.gms.nearby.connection.PayloadCallback
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import com.google.android.gms.nearby.connection.Strategy
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.ConcurrentHashMap
 
 class NearbyConnectionsSyncTransport(
     private val context: Context,
@@ -33,6 +36,7 @@ class NearbyConnectionsSyncTransport(
     override val state: StateFlow<TransportState> = _state.asStateFlow()
 
     private var batchListener: (suspend (endpointId: String, batch: SyncBatch) -> Unit)? = null
+    private val outgoingTransfers = ConcurrentHashMap<Long, CompletableDeferred<Boolean>>()
 
     private val payloadCallback = object : PayloadCallback() {
         override fun onPayloadReceived(endpointId: String, payload: Payload) {
@@ -51,7 +55,22 @@ class NearbyConnectionsSyncTransport(
             }
         }
 
-        override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {}
+        override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {
+            val result = when (update.status) {
+                PayloadTransferUpdate.Status.SUCCESS -> true
+                PayloadTransferUpdate.Status.FAILURE,
+                PayloadTransferUpdate.Status.CANCELED,
+                -> false
+                else -> return
+            }
+            outgoingTransfers.remove(update.payloadId)?.complete(result)
+            if (!result) {
+                _state.value = TransportState(
+                    stage = TransportStage.FAILED,
+                    errorMessage = "تعذر إكمال إرسال بيانات المزامنة. يمكنك المحاولة مرة أخرى بأمان.",
+                )
+            }
+        }
     }
 
     private val connectionLifecycleCallback = object : ConnectionLifecycleCallback() {
@@ -61,7 +80,7 @@ class NearbyConnectionsSyncTransport(
                 discoveredEndpoint = TransportDiscoveredEndpoint(
                     endpointId = endpointId,
                     deviceName = connectionInfo.endpointName,
-                    authDigits = connectionInfo.authenticationDigits ?: "------",
+                    authDigits = connectionInfo.authenticationDigits,
                 ),
             )
         }
@@ -137,11 +156,18 @@ class NearbyConnectionsSyncTransport(
         client.stopAdvertising()
         client.stopDiscovery()
         client.stopAllEndpoints()
+        completePendingTransfers(false)
         _state.value = TransportState(stage = TransportStage.IDLE)
     }
 
     override fun acceptConnection(endpointId: String) {
-        client.acceptConnection(endpointId, payloadCallback)
+        _state.value = _state.value.copy(stage = TransportStage.RECEIVING_DATA)
+        client.acceptConnection(endpointId, payloadCallback).addOnFailureListener {
+            _state.value = TransportState(
+                stage = TransportStage.FAILED,
+                errorMessage = "تعذر قبول الاتصال. حاول بدء المزامنة مرة أخرى.",
+            )
+        }
     }
 
     override fun rejectConnection(endpointId: String) {
@@ -153,19 +179,35 @@ class NearbyConnectionsSyncTransport(
     }
 
     override suspend fun sendBatch(endpointId: String, batch: SyncBatch): Boolean {
-        return try {
+        val payload = try {
             _state.value = _state.value.copy(stage = TransportStage.SENDING_DATA)
             val jsonStr = SyncJsonCodec.batchToJson(batch)
             val bytes = jsonStr.toByteArray(StandardCharsets.UTF_8)
-            client.sendPayload(endpointId, Payload.fromBytes(bytes))
-            true
+            Payload.fromBytes(bytes)
         } catch (e: Exception) {
             _state.value = TransportState(
                 stage = TransportStage.FAILED,
-                errorMessage = "تعذر إرسال بيانات المزامنة: ${e.message}",
+                errorMessage = "تعذر تجهيز بيانات المزامنة للإرسال.",
             )
-            false
+            return false
         }
+
+        val completion = CompletableDeferred<Boolean>()
+        outgoingTransfers[payload.id] = completion
+        client.sendPayload(endpointId, payload).addOnFailureListener {
+            outgoingTransfers.remove(payload.id)?.complete(false)
+        }
+        val succeeded = withTimeoutOrNull(TRANSFER_TIMEOUT_MILLIS) { completion.await() } == true
+        outgoingTransfers.remove(payload.id)
+        if (!succeeded) {
+            _state.value = TransportState(
+                stage = TransportStage.FAILED,
+                errorMessage = "لم يكتمل إرسال بيانات المزامنة. تحقق من قرب الهاتفين ثم أعد المحاولة.",
+            )
+        } else {
+            _state.value = _state.value.copy(stage = TransportStage.RECEIVING_DATA)
+        }
+        return succeeded
     }
 
     override fun setBatchReceivedListener(listener: (suspend (endpointId: String, batch: SyncBatch) -> Unit)?) {
@@ -174,10 +216,17 @@ class NearbyConnectionsSyncTransport(
 
     override fun disconnect(endpointId: String) {
         client.disconnectFromEndpoint(endpointId)
+        completePendingTransfers(false)
         _state.value = TransportState(stage = TransportStage.IDLE)
+    }
+
+    private fun completePendingTransfers(result: Boolean) {
+        outgoingTransfers.values.forEach { it.complete(result) }
+        outgoingTransfers.clear()
     }
 
     private companion object {
         const val SERVICE_ID = "com.alabadla.internetcardledger.sync"
+        const val TRANSFER_TIMEOUT_MILLIS = 30_000L
     }
 }

@@ -301,5 +301,5 @@ private fun HistoryOperation.labelResource(): Int = when (this) {
 private fun formatHistoryDate(timestamp: Long): String = DateFormat.getDateTimeInstance(
     DateFormat.MEDIUM,
     DateFormat.SHORT,
-    Locale("ar"),
+    Locale.forLanguageTag("ar"),
 ).format(Date(timestamp))

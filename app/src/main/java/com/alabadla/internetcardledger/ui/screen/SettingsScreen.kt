@@ -5,7 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -26,13 +25,18 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.res.stringResource
+import com.alabadla.internetcardledger.R
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alabadla.internetcardledger.data.repository.BackupReminder
-import com.alabadla.internetcardledger.data.sync.ApprovedDeviceEntity
 import com.alabadla.internetcardledger.data.sync.DeviceRole
 import com.alabadla.internetcardledger.data.sync.SyncSessionEntity
 import com.alabadla.internetcardledger.ui.viewmodel.BackupUiState
@@ -54,12 +58,13 @@ fun SettingsScreen(
     val sessions by viewModel.auditSessions.collectAsStateWithLifecycle()
     val backupState by backupViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var pinAction by remember { mutableStateOf<ProtectedAction?>(null) }
-    var deviceToRemove by remember { mutableStateOf<ApprovedDeviceEntity?>(null) }
-    var showIdentityEditor by remember { mutableStateOf(false) }
-    var showChangePin by remember { mutableStateOf(false) }
-    var recoveryRequested by remember { mutableStateOf(false) }
-    var showRecoveryPin by remember { mutableStateOf(false) }
+    var pinActionName by rememberSaveable { mutableStateOf<String?>(null) }
+    val pinAction = pinActionName?.let(ProtectedAction::valueOf)
+    var deviceToRemoveId by rememberSaveable { mutableStateOf<String?>(null) }
+    var showIdentityEditor by rememberSaveable { mutableStateOf(false) }
+    var showChangePin by rememberSaveable { mutableStateOf(false) }
+    var recoveryRequested by rememberSaveable { mutableStateOf(false) }
+    var showRecoveryPin by rememberSaveable { mutableStateOf(false) }
     val recoveryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri == null) recoveryRequested = false else backupViewModel.export(context.contentResolver, uri)
     }
@@ -72,76 +77,76 @@ fun SettingsScreen(
         }
     }
 
-    Scaffold(topBar = { SecondaryTopBar("الإعدادات", onBack) }) { padding ->
+    Scaffold(topBar = { SecondaryTopBar(stringResource(R.string.action_settings), onBack) }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item {
                 state.settings?.identity?.let { identity ->
-                    SettingsCard("هذا الجهاز") {
+                    SettingsCard(stringResource(R.string.settings_this_device)) {
                         Text(identity.deviceName, style = MaterialTheme.typography.titleLarge)
-                        Text(if (identity.role == DeviceRole.MAIN) "الهاتف الرئيسي — هاتف العم" else "هاتف فرعي", style = MaterialTheme.typography.bodyLarge)
-                        Button(onClick = { pinAction = ProtectedAction.EDIT_IDENTITY }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                            Text("تعديل الاسم أو الدور")
+                        Text(stringResource(if (identity.role == DeviceRole.MAIN) R.string.settings_main_role else R.string.role_secondary), style = MaterialTheme.typography.bodyLarge)
+                        Button(onClick = { pinActionName = ProtectedAction.EDIT_IDENTITY.name }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                            Text(stringResource(R.string.settings_edit_identity))
                         }
                     }
                 }
             }
             item {
-                SettingsCard("تذكير النسخ الاحتياطي") {
+                SettingsCard(stringResource(R.string.settings_backup_reminder)) {
                     ReminderButtons(state.settings?.backupReminder ?: BackupReminder.WEEKLY, viewModel::updateReminder)
                     OutlinedButton(onClick = onBackup, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                        Text("فتح النسخ الاحتياطي والاستعادة")
+                        Text(stringResource(R.string.settings_open_backup))
                     }
                 }
             }
-            item { Text("الأجهزة المعتمدة", style = MaterialTheme.typography.titleLarge) }
-            if (devices.isEmpty()) item { Text("لا توجد أجهزة معتمدة حاليًا.", style = MaterialTheme.typography.bodyLarge) }
+            item { Text(stringResource(R.string.settings_approved_devices), style = MaterialTheme.typography.titleLarge) }
+            if (devices.isEmpty()) item { Text(stringResource(R.string.settings_no_approved_devices), style = MaterialTheme.typography.bodyLarge) }
             items(devices, key = { it.deviceId }) { device ->
                 ElevatedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(device.deviceName, style = MaterialTheme.typography.titleMedium)
                         OutlinedButton(
-                            onClick = { deviceToRemove = device; pinAction = ProtectedAction.REMOVE_DEVICE },
+                            onClick = { deviceToRemoveId = device.deviceId; pinActionName = ProtectedAction.REMOVE_DEVICE.name },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                        ) { Text("إزالة اعتماد الجهاز") }
+                        ) { Text(stringResource(R.string.settings_remove_device)) }
                     }
                 }
             }
             item {
-                SettingsCard("الأمان") {
-                    Button(onClick = { showChangePin = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text("تغيير الرقم السري") }
+                SettingsCard(stringResource(R.string.settings_security)) {
+                    Button(onClick = { showChangePin = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(stringResource(R.string.settings_change_pin)) }
                     OutlinedButton(
                         onClick = { recoveryRequested = true; recoveryLauncher.launch("recovery-backup.json") },
                         enabled = backupState !is BackupUiState.Working,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                    ) { Text("نسيت الرقم السري — إنشاء نسخة استرداد") }
-                    if (recoveryRequested) Text("يجب حفظ نسخة الاسترداد بنجاح قبل تعيين رقم جديد.", style = MaterialTheme.typography.bodyLarge)
+                    ) { Text(stringResource(R.string.settings_forgot_backup)) }
+                    if (recoveryRequested) Text(stringResource(R.string.settings_recovery_required), style = MaterialTheme.typography.bodyLarge)
                 }
             }
-            item { Text("سجل المزامنة", style = MaterialTheme.typography.titleLarge) }
-            if (sessions.isEmpty()) item { Text("لا توجد عمليات مزامنة مسجلة.", style = MaterialTheme.typography.bodyLarge) }
+            item { Text(stringResource(R.string.settings_audit_log), style = MaterialTheme.typography.titleLarge) }
+            if (sessions.isEmpty()) item { Text(stringResource(R.string.settings_no_audit), style = MaterialTheme.typography.bodyLarge) }
             items(sessions.take(10), key = { it.id }) { SessionRow(it) }
             item {
                 val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0" }
-                Text("إصدار التطبيق: $version", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(vertical = 20.dp))
+                Text(stringResource(R.string.settings_version, version), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(vertical = 20.dp))
             }
         }
     }
 
     pinAction?.let { action ->
         PinDialog(
-            title = "أدخل الرقم السري للمتابعة",
-            onDismiss = { pinAction = null; deviceToRemove = null },
-            onForgotPin = { pinAction = null; recoveryRequested = true; recoveryLauncher.launch("recovery-backup.json") },
+            title = stringResource(R.string.pin_required_action),
+            onDismiss = { pinActionName = null; deviceToRemoveId = null },
+            onForgotPin = { pinActionName = null; recoveryRequested = true; recoveryLauncher.launch("recovery-backup.json") },
             onConfirm = { pin ->
                 viewModel.verifyPin(pin) { valid ->
                     if (valid) when (action) {
                         ProtectedAction.EDIT_IDENTITY -> showIdentityEditor = true
-                        ProtectedAction.REMOVE_DEVICE -> deviceToRemove?.let { viewModel.removeApprovedDevice(it.deviceId) }
+                        ProtectedAction.REMOVE_DEVICE -> deviceToRemoveId?.let(viewModel::removeApprovedDevice)
                     }
-                    if (valid) { pinAction = null; deviceToRemove = null }
+                    if (valid) { pinActionName = null; deviceToRemoveId = null }
                 }
             },
         )
@@ -166,7 +171,19 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = viewModel::clearMessage,
             text = { Text(message, style = MaterialTheme.typography.bodyLarge) },
-            confirmButton = { Button(onClick = viewModel::clearMessage) { Text("حسنًا") } },
+            confirmButton = { Button(onClick = viewModel::clearMessage) { Text(stringResource(R.string.action_ok)) } },
+        )
+    }
+    if (recoveryRequested && backupState is BackupUiState.Error) {
+        AlertDialog(
+            onDismissRequest = { recoveryRequested = false; backupViewModel.dismissMessage() },
+            title = { Text(stringResource(R.string.backup_replace_warning_title)) },
+            text = { Text((backupState as BackupUiState.Error).message, style = MaterialTheme.typography.bodyLarge) },
+            confirmButton = {
+                Button(onClick = { recoveryRequested = false; backupViewModel.dismissMessage() }) {
+                    Text(stringResource(R.string.action_ok))
+                }
+            },
         )
     }
 }
@@ -183,7 +200,11 @@ private fun SettingsCard(title: String, content: @Composable () -> Unit) {
 
 @Composable
 private fun ReminderButtons(selected: BackupReminder, onSelect: (BackupReminder) -> Unit) {
-    val values = listOf(BackupReminder.DAILY to "يوميًا", BackupReminder.WEEKLY to "أسبوعيًا", BackupReminder.NEVER to "بدون تذكير")
+    val values = listOf(
+        BackupReminder.DAILY to stringResource(R.string.reminder_daily),
+        BackupReminder.WEEKLY to stringResource(R.string.reminder_weekly),
+        BackupReminder.NEVER to stringResource(R.string.reminder_never),
+    )
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         values.forEach { (value, label) ->
             val modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
@@ -197,40 +218,48 @@ private fun ReminderButtons(selected: BackupReminder, onSelect: (BackupReminder)
 private fun SessionRow(session: SyncSessionEntity) {
     val context = LocalContext.current
     val date = remember(session.startedAt) { DateFormat.getMediumDateFormat(context).format(Date(session.startedAt)) }
+    val status = stringResource(
+        when (session.status) {
+            "SUCCESS" -> R.string.sync_status_success
+            "CONFLICT_DETECTED" -> R.string.sync_status_conflict
+            else -> R.string.sync_status_failed
+        },
+    )
     ElevatedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(session.peerDeviceName, style = MaterialTheme.typography.titleMedium)
-            Text("$date — ${session.status}", style = MaterialTheme.typography.bodyLarge)
-            Text("مرسلة: ${session.changesSentCount}، مستلمة: ${session.changesReceivedCount}، تعارضات: ${session.conflictsCount}")
+            Text(stringResource(R.string.audit_date_status, date, status), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.audit_counts, session.changesSentCount, session.changesReceivedCount, session.conflictsCount))
         }
     }
 }
 
 @Composable
 private fun IdentityEditor(initialName: String, initialRole: DeviceRole, onDismiss: () -> Unit, onSave: (String, DeviceRole) -> Unit) {
-    var name by remember { mutableStateOf(initialName) }
-    var role by remember { mutableStateOf(initialRole) }
-    var confirmMain by remember { mutableStateOf(false) }
+    var name by rememberSaveable(initialName) { mutableStateOf(initialName) }
+    var roleName by rememberSaveable(initialRole) { mutableStateOf(initialRole.name) }
+    val role = DeviceRole.valueOf(roleName)
+    var confirmMain by rememberSaveable { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تعديل بيانات الجهاز") },
+        title = { Text(stringResource(R.string.identity_edit_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(name, { name = it.take(50) }, label = { Text("اسم الجهاز") }, singleLine = true)
-                Button(onClick = { role = DeviceRole.SECONDARY }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("هاتف فرعي") }
-                OutlinedButton(onClick = { confirmMain = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("هاتف رئيسي") }
-                Text(if (role == DeviceRole.MAIN) "المحدد: رئيسي" else "المحدد: فرعي")
+                OutlinedTextField(name, { name = it.take(50) }, label = { Text(stringResource(R.string.device_name_short)) }, singleLine = true)
+                Button(onClick = { roleName = DeviceRole.SECONDARY.name }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text(stringResource(R.string.role_secondary)) }
+                OutlinedButton(onClick = { confirmMain = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text(stringResource(R.string.role_main)) }
+                Text(stringResource(if (role == DeviceRole.MAIN) R.string.role_selected_main_short else R.string.role_selected_secondary_short))
             }
         },
-        confirmButton = { Button(onClick = { onSave(name, role) }) { Text("حفظ") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+        confirmButton = { Button(onClick = { onSave(name, role) }) { Text(stringResource(R.string.action_save_short)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
     if (confirmMain) AlertDialog(
         onDismissRequest = { confirmMain = false },
-        title = { Text("تحذير") },
-        text = { Text("يجب أن يكون هاتف العم وحده هو الهاتف الرئيسي.") },
-        confirmButton = { Button(onClick = { role = DeviceRole.MAIN; confirmMain = false }) { Text("تأكيد الهاتف الرئيسي") } },
-        dismissButton = { TextButton(onClick = { confirmMain = false }) { Text("رجوع") } },
+        title = { Text(stringResource(R.string.warning_title)) },
+        text = { Text(stringResource(R.string.main_only_warning)) },
+        confirmButton = { Button(onClick = { roleName = DeviceRole.MAIN.name; confirmMain = false }) { Text(stringResource(R.string.main_confirm_short)) } },
+        dismissButton = { TextButton(onClick = { confirmMain = false }) { Text(stringResource(R.string.action_back)) } },
     )
 }
 
@@ -241,16 +270,16 @@ private fun ChangePinDialog(recovery: Boolean, onDismiss: () -> Unit, onSave: (S
     var confirmation by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (recovery) "تعيين رقم سري جديد" else "تغيير الرقم السري") },
+        title = { Text(stringResource(if (recovery) R.string.pin_reset_title else R.string.settings_change_pin)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (!recovery) PinInput("الرقم السري الحالي", current) { current = it }
-                PinInput("الرقم السري الجديد", newPin) { newPin = it }
-                PinInput("تأكيد الرقم الجديد", confirmation) { confirmation = it }
+                if (!recovery) PinInput(stringResource(R.string.pin_current), current) { current = it }
+                PinInput(stringResource(R.string.pin_new), newPin) { newPin = it }
+                PinInput(stringResource(R.string.pin_confirm_new), confirmation) { confirmation = it }
             }
         },
-        confirmButton = { Button(onClick = { onSave(current, newPin, confirmation) }, enabled = newPin.length >= 4) { Text("حفظ") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } },
+        confirmButton = { Button(onClick = { onSave(current, newPin, confirmation) }, enabled = newPin.length >= 4) { Text(stringResource(R.string.action_save_short)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -258,6 +287,9 @@ private fun ChangePinDialog(recovery: Boolean, onDismiss: () -> Unit, onSave: (S
 private fun PinInput(label: String, value: String, onChange: (String) -> Unit) {
     OutlinedTextField(
         value, { onChange(it.filter(Char::isDigit).take(8)) }, label = { Text(label) },
-        singleLine = true, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
     )
 }

@@ -49,6 +49,13 @@ class BackupViewModel(
         _state.value = BackupUiState.Success("تم حفظ النسخة الاحتياطية بنجاح.")
     }
 
+    fun exportCsv(contentResolver: ContentResolver, uri: Uri) = runOnce("جارٍ إنشاء ملف CSV…") {
+        val output = contentResolver.openOutputStream(uri, "w")
+            ?: error("تعذر فتح الملف المحدد للكتابة.")
+        output.use { repository.exportCsv(it) }
+        _state.value = BackupUiState.Success("تم حفظ ملف CSV المتوافق مع Google Sheets بنجاح.")
+    }
+
     fun inspect(contentResolver: ContentResolver, uri: Uri) = runOnce("جارٍ فحص النسخة الاحتياطية…") {
         val input = contentResolver.openInputStream(uri)
             ?: error("تعذر فتح الملف المحدد.")

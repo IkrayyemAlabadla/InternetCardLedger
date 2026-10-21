@@ -62,6 +62,8 @@ class SyncViewModel(
     val sessions: StateFlow<List<SyncSessionEntity>> = syncDao.observeAllSessions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    private var initialBatchSentToEndpoint: String? = null
+
     init {
         viewModelScope.launch {
             val identity = syncEngine.getOrCreateLocalIdentity()
@@ -71,6 +73,17 @@ class SyncViewModel(
         viewModelScope.launch {
             transport.state.collect { tState ->
                 _uiState.update { it.copy(transportState = tState) }
+                val endpointId = tState.connectedEndpointId
+                val identity = _uiState.value.localIdentity
+                if (
+                    endpointId != null &&
+                    identity?.role == DeviceRole.SECONDARY &&
+                    initialBatchSentToEndpoint != endpointId
+                ) {
+                    initialBatchSentToEndpoint = endpointId
+                    val sent = transport.sendBatch(endpointId, syncEngine.generateSyncBatch())
+                    if (!sent) initialBatchSentToEndpoint = null
+                }
             }
         }
 
@@ -94,6 +107,8 @@ class SyncViewModel(
 
     fun startSync() {
         viewModelScope.launch {
+            initialBatchSentToEndpoint = null
+            transport.stop()
             val identity = syncEngine.getOrCreateLocalIdentity()
             if (identity.role == DeviceRole.MAIN) {
                 transport.startAdvertising(identity.deviceName)
@@ -103,24 +118,8 @@ class SyncViewModel(
         }
     }
 
-    fun approveConnection(endpointId: String, peerName: String, peerDeviceId: String? = null) {
-        viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            val deviceId = peerDeviceId ?: endpointId
-            approvedDeviceDao.upsertApprovedDevice(
-                ApprovedDeviceEntity(
-                    deviceId = deviceId,
-                    deviceName = peerName,
-                    approvedAt = now,
-                    lastSyncedAt = now,
-                ),
-            )
-            transport.acceptConnection(endpointId)
-
-            // Send local batch
-            val batch = syncEngine.generateSyncBatch()
-            transport.sendBatch(endpointId, batch)
-        }
+    fun approveConnection(endpointId: String) {
+        transport.acceptConnection(endpointId)
     }
 
     fun rejectConnection(endpointId: String) {
@@ -162,6 +161,7 @@ class SyncViewModel(
     }
 
     fun stopSync() {
+        initialBatchSentToEndpoint = null
         transport.stop()
         _uiState.update {
             it.copy(
@@ -174,18 +174,44 @@ class SyncViewModel(
     private fun handleIncomingBatch(endpointId: String, incomingBatch: com.alabadla.internetcardledger.data.sync.SyncBatch) {
         viewModelScope.launch {
             runCatching {
-                val result = syncEngine.performTwoWaySync(incomingBatch)
+                val identity = syncEngine.getOrCreateLocalIdentity()
+                val result = if (identity.role == DeviceRole.MAIN) {
+                    syncEngine.performTwoWaySync(incomingBatch)
+                } else {
+                    val session = syncEngine.processIncomingBatch(incomingBatch)
+                    com.alabadla.internetcardledger.data.sync.TwoWaySyncResult(
+                        session = session,
+                        responseBatch = incomingBatch.copy(changes = emptyList(), customers = emptyList(), sales = emptyList(), payments = emptyList()),
+                    )
+                }
+                val now = System.currentTimeMillis()
+                val previousApproval = approvedDeviceDao.getApprovedDevice(incomingBatch.senderDeviceId)
+                approvedDeviceDao.upsertApprovedDevice(
+                    ApprovedDeviceEntity(
+                        deviceId = incomingBatch.senderDeviceId,
+                        deviceName = incomingBatch.senderDeviceName,
+                        approvedAt = previousApproval?.approvedAt ?: now,
+                        lastSyncedAt = now,
+                    ),
+                )
+                val sentCount = if (identity.role == DeviceRole.MAIN) {
+                    val sent = transport.sendBatch(endpointId, result.responseBatch)
+                    if (!sent) error("تعذر إرسال رد المزامنة.")
+                    result.responseBatch.changes.size
+                } else {
+                    0
+                }
                 _uiState.update {
                     it.copy(
                         summary = SyncResultSummary(
-                            uploadedCount = result.responseBatch.changes.size,
+                            uploadedCount = sentCount,
                             downloadedCount = incomingBatch.changes.size,
                             skippedCount = 0,
                             conflictsCount = result.session.conflictsCount,
                         ),
                         transportState = TransportState(
                             stage = if (result.session.conflictsCount > 0) TransportStage.FAILED else TransportStage.SUCCESS,
-                            errorMessage = if (result.session.conflictsCount > 0) "تم اكتشاف تضاربات. يرجى مراجعتها" else null,
+                            errorMessage = if (result.session.conflictsCount > 0) "تم اكتشاف تعارضات. يرجى مراجعتها." else null,
                         ),
                     )
                 }
@@ -194,7 +220,7 @@ class SyncViewModel(
                     it.copy(
                         transportState = TransportState(
                             stage = TransportStage.FAILED,
-                            errorMessage = "فشلت المزامنة: ${err.message}",
+                            errorMessage = "فشلت المزامنة. لم تُحذف بياناتك ويمكنك المحاولة مرة أخرى.",
                         ),
                     )
                 }

@@ -20,16 +20,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    buildTypes {
-        release {
-            optimization {
-                enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
-            }
-        }
-    }
     buildFeatures {
         compose = true
+    }
+    sourceSets.named("androidTest") {
+        assets.directories.add("$projectDir/schemas")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

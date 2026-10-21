@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.alabadla.internetcardledger.R
 
 @Composable
 fun PinDialog(
@@ -33,17 +35,17 @@ fun PinDialog(
             OutlinedTextField(
                 value = pin,
                 onValueChange = { value -> pin = value.filter(Char::isDigit).take(8) },
-                label = { Text("الرقم السري") },
+                label = { Text(stringResource(R.string.pin_label)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
             )
         },
-        confirmButton = { Button(onClick = { onConfirm(pin) }, enabled = pin.length >= 4) { Text("متابعة") } },
+        confirmButton = { Button(onClick = { onConfirm(pin) }, enabled = pin.length >= 4) { Text(stringResource(R.string.pin_continue)) } },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("إلغاء") }
-            onForgotPin?.let { forgot -> TextButton(onClick = forgot) { Text("نسيت الرقم السري") } }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            onForgotPin?.let { forgot -> TextButton(onClick = forgot) { Text(stringResource(R.string.pin_forgot)) } }
         },
     )
 }

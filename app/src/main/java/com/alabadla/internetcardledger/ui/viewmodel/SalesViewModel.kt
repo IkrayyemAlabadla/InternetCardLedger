@@ -116,6 +116,7 @@ class SalesViewModel(
             quantity == null || quantity <= 0 -> SaleFormError.QUANTITY_INVALID
             priceText.isEmpty() -> SaleFormError.PRICE_REQUIRED
             price == null || price < 0 -> SaleFormError.PRICE_INVALID
+            runCatching { Math.multiplyExact(quantity.toLong(), price) }.isFailure -> SaleFormError.PRICE_INVALID
             else -> null
         }
         if (error != null) {
@@ -198,8 +199,8 @@ class SalesViewModel(
             value.trim().forEach { character ->
                 append(
                     when (character) {
-                        in '٠'..'٩' -> '0' + (character - '٠')
-                        in '۰'..'۹' -> '0' + (character - '۰')
+                        in '\u0660'..'\u0669' -> '0' + (character - '\u0660')
+                        in '\u06F0'..'\u06F9' -> '0' + (character - '\u06F0')
                         else -> character
                     },
                 )

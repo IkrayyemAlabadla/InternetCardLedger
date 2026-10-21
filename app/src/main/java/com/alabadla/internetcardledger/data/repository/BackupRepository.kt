@@ -5,6 +5,7 @@ import com.alabadla.internetcardledger.data.DeviceIdProvider
 import com.alabadla.internetcardledger.data.backup.BACKUP_FORMAT_VERSION
 import com.alabadla.internetcardledger.data.backup.BackupDocument
 import com.alabadla.internetcardledger.data.backup.BackupJsonCodec
+import com.alabadla.internetcardledger.data.backup.LedgerCsvCodec
 import com.alabadla.internetcardledger.data.backup.RestoreReport
 import com.alabadla.internetcardledger.data.local.dao.BackupDao
 import java.io.File
@@ -37,6 +38,10 @@ class BackupRepository(
 
     suspend fun export(output: OutputStream): BackupDocument = withContext(Dispatchers.IO) {
         createDocument().also { BackupJsonCodec.write(it, output) }
+    }
+
+    suspend fun exportCsv(output: OutputStream) = withContext(Dispatchers.IO) {
+        LedgerCsvCodec.write(backupDao.snapshot(), output)
     }
 
     suspend fun inspect(input: InputStream): BackupDocument = withContext(Dispatchers.IO) {

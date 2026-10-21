@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
@@ -384,14 +385,14 @@ private fun CustomerDetails(
                     }
                 }
 
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Button(
                         onClick = { onEdit(customer) },
                         enabled = !isDeleting,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.action_edit))
                         Text(stringResource(R.string.action_edit), modifier = Modifier.padding(start = 8.dp))
@@ -399,7 +400,11 @@ private fun CustomerDetails(
                     Button(
                         onClick = onDelete,
                         enabled = !isDeleting,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        ),
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_delete))
                         Text(stringResource(R.string.action_delete), modifier = Modifier.padding(start = 8.dp))
@@ -571,6 +576,6 @@ private fun CustomerForm(
 }
 
 private fun formatDate(timestamp: Long): String {
-    val formatter = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale("ar"))
+    val formatter = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.forLanguageTag("ar"))
     return formatter.format(Date(timestamp))
 }

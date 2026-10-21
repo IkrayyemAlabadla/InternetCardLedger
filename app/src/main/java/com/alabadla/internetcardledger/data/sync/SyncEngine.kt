@@ -162,6 +162,9 @@ class SyncEngine(
                 if (sale.description.isBlank() || sale.quantity <= 0 || sale.unitPriceMinor < 0L) {
                     throw InvalidSyncBatchException("تحتوي المزامنة على بيع غير صالح.")
                 }
+                if (runCatching { Math.multiplyExact(sale.quantity.toLong(), sale.unitPriceMinor) }.isFailure) {
+                    throw InvalidSyncBatchException("تحتوي المزامنة على قيمة بيع أكبر من الحد المسموح.")
+                }
             }
             batch.payments.forEach { payment ->
                 if (payment.amountMinor <= 0L) {

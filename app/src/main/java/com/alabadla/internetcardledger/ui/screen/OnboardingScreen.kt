@@ -2,7 +2,6 @@ package com.alabadla.internetcardledger.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -22,60 +21,73 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.alabadla.internetcardledger.R
 import com.alabadla.internetcardledger.data.sync.DeviceRole
 import com.alabadla.internetcardledger.ui.viewmodel.SettingsViewModel
 
 @Composable
 fun OnboardingScreen(viewModel: SettingsViewModel) {
-    var name by remember { mutableStateOf("") }
-    var role by remember { mutableStateOf(DeviceRole.SECONDARY) }
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    var name by rememberSaveable { mutableStateOf("") }
+    var roleName by rememberSaveable { mutableStateOf(DeviceRole.SECONDARY.name) }
+    val role = DeviceRole.valueOf(roleName)
     var pin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
-    var confirmMain by remember { mutableStateOf(false) }
+    var confirmMain by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Text("إعداد دفتر كروت الإنترنت", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
-        Text("هذه الخطوات تظهر مرة واحدة فقط.", style = MaterialTheme.typography.bodyLarge)
+        Text(stringResource(R.string.onboarding_title), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+        Text(stringResource(R.string.onboarding_once), style = MaterialTheme.typography.bodyLarge)
         OutlinedTextField(
             value = name, onValueChange = { name = it.take(50) },
-            label = { Text("اسم هذا الهاتف") }, singleLine = true,
+            label = { Text(stringResource(R.string.device_name_label)) }, singleLine = true,
             modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
         )
-        Text("اختر دور الهاتف", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.device_role_choose), style = MaterialTheme.typography.titleLarge)
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("الهاتف الرئيسي مخصص لهاتف العم فقط. بقية الهواتف يجب أن تكون فرعية.", style = MaterialTheme.typography.bodyLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = { role = DeviceRole.SECONDARY }, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) { Text("هاتف فرعي") }
-                    OutlinedButton(onClick = { confirmMain = true }, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) { Text("هاتف رئيسي") }
+                Text(stringResource(R.string.main_device_warning), style = MaterialTheme.typography.bodyLarge)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(onClick = { roleName = DeviceRole.SECONDARY.name }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(stringResource(R.string.role_secondary)) }
+                    OutlinedButton(onClick = { confirmMain = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(stringResource(R.string.role_main)) }
                 }
-                Text(if (role == DeviceRole.MAIN) "المحدد: الهاتف الرئيسي" else "المحدد: هاتف فرعي", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(if (role == DeviceRole.MAIN) R.string.role_selected_main else R.string.role_selected_secondary), style = MaterialTheme.typography.titleMedium)
             }
         }
-        Text("أنشئ رقمًا سريًا لحماية الإعدادات والاستعادة", style = MaterialTheme.typography.titleLarge)
-        PinField("الرقم السري (4 إلى 8 أرقام)", pin) { pin = it }
-        PinField("تأكيد الرقم السري", confirmPin) { confirmPin = it }
+        Text(stringResource(R.string.pin_create_explanation), style = MaterialTheme.typography.titleLarge)
+        PinField(stringResource(R.string.pin_new_label), pin) { pin = it }
+        PinField(stringResource(R.string.pin_confirm_label), confirmPin) { confirmPin = it }
         Button(
             onClick = { viewModel.completeOnboarding(name, role, pin, confirmPin) },
             modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp),
-        ) { Text("حفظ وبدء الاستخدام", style = MaterialTheme.typography.titleMedium) }
+        ) { Text(stringResource(R.string.onboarding_finish), style = MaterialTheme.typography.titleMedium) }
     }
 
     if (confirmMain) AlertDialog(
         onDismissRequest = { confirmMain = false },
-        title = { Text("تأكيد الهاتف الرئيسي") },
-        text = { Text("اختر هذا الدور فقط إذا كان هذا هو هاتف العم الرئيسي. هل أنت متأكد؟", style = MaterialTheme.typography.bodyLarge) },
-        confirmButton = { Button(onClick = { role = DeviceRole.MAIN; confirmMain = false }) { Text("نعم، هذا هاتف العم") } },
-        dismissButton = { TextButton(onClick = { confirmMain = false }) { Text("رجوع") } },
+        title = { Text(stringResource(R.string.main_confirm_title)) },
+        text = { Text(stringResource(R.string.main_confirm_message), style = MaterialTheme.typography.bodyLarge) },
+        confirmButton = { Button(onClick = { roleName = DeviceRole.MAIN.name; confirmMain = false }) { Text(stringResource(R.string.main_confirm_action)) } },
+        dismissButton = { TextButton(onClick = { confirmMain = false }) { Text(stringResource(R.string.action_back)) } },
     )
+    state.message?.let { message ->
+        AlertDialog(
+            onDismissRequest = viewModel::clearMessage,
+            text = { Text(message, style = MaterialTheme.typography.bodyLarge) },
+            confirmButton = { Button(onClick = viewModel::clearMessage) { Text(stringResource(R.string.action_ok)) } },
+        )
+    }
 }
 
 @Composable

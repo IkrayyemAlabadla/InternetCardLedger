@@ -22,10 +22,12 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -213,7 +215,7 @@ private fun SalesList(
                     .fillMaxWidth()
                     .heightIn(min = 64.dp),
             ) {
-                Icon(Icons.Default.Add, contentDescription = null)
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.icon_add_sale_description))
                 Text(
                     text = stringResource(R.string.action_add_sale),
                     style = MaterialTheme.typography.labelLarge,
@@ -310,15 +312,19 @@ private fun SaleDetails(
                     onClick = onEdit,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
                 ) {
-                    Icon(Icons.Default.Edit, contentDescription = null)
+                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.action_edit))
                     Text(stringResource(R.string.action_edit), modifier = Modifier.padding(start = 12.dp))
                 }
                 Button(
                     onClick = onDelete,
                     enabled = !isDeleting,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = null)
+                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_delete))
                     Text(stringResource(R.string.action_delete), modifier = Modifier.padding(start = 12.dp))
                 }
             }
@@ -372,22 +378,26 @@ private fun SaleForm(
                     text = "${stringResource(R.string.customer_select_label)}: $selectedCustomerName",
                     style = MaterialTheme.typography.titleMedium,
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Button(
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
                         onClick = { onCustomerIdChanged(null) },
                         enabled = !state.isSaving && state.customerId != null,
-                    ) {
-                        Text(stringResource(R.string.no_customer_selected))
-                    }
-                    customers.take(3).forEach { customer ->
-                        Button(
-                            onClick = { onCustomerIdChanged(customer.id) },
-                            enabled = !state.isSaving && state.customerId != customer.id,
-                        ) {
-                            Text(customer.name)
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    ) { Text(stringResource(R.string.no_customer_selected)) }
+                    customers.forEach { customer ->
+                        val selected = state.customerId == customer.id
+                        if (selected) {
+                            Button(
+                                onClick = {},
+                                enabled = false,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                            ) { Text(customer.name) }
+                        } else {
+                            OutlinedButton(
+                                onClick = { onCustomerIdChanged(customer.id) },
+                                enabled = !state.isSaving,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                            ) { Text(customer.name) }
                         }
                     }
                 }
@@ -466,5 +476,5 @@ private fun SaleFormError.stringResource(): Int = when (this) {
 private fun formatDate(timestamp: Long): String = DateFormat.getDateTimeInstance(
     DateFormat.MEDIUM,
     DateFormat.SHORT,
-    Locale("ar"),
+    Locale.forLanguageTag("ar"),
 ).format(Date(timestamp))
