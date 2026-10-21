@@ -11,10 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +40,7 @@ import com.alabadla.internetcardledger.domain.HistoryDateFilter
 import com.alabadla.internetcardledger.domain.HistoryOperation
 import com.alabadla.internetcardledger.domain.HistoryRecord
 import com.alabadla.internetcardledger.domain.HistoryRecordType
+import com.alabadla.internetcardledger.ui.util.CurrencyFormatter
 import com.alabadla.internetcardledger.ui.viewmodel.DashboardViewModel
 import com.alabadla.internetcardledger.ui.viewmodel.HistoryUiState
 import java.text.DateFormat
@@ -227,10 +228,10 @@ private fun HistoryDetails(record: HistoryRecord, onBack: () -> Unit) {
                 HistoryDetailRow(R.string.history_related_customer, name)
             }
             record.quantity?.let { quantity ->
-                HistoryDetailRow(R.string.sale_quantity, quantity.toString())
+                HistoryDetailRow(R.string.sale_quantity, CurrencyFormatter.formatQuantity(quantity))
             }
             record.amountMinor?.let { amount ->
-                HistoryDetailRow(R.string.history_amount, stringResource(R.string.money_minor_value, amount))
+                HistoryDetailRow(R.string.history_amount, CurrencyFormatter.formatMoney(amount))
             }
             HistoryDetailRow(R.string.history_updated_at, formatHistoryDate(record.updatedAt))
             if (record.isPending) {

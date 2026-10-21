@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
@@ -29,13 +30,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.res.stringResource
-import com.alabadla.internetcardledger.R
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.alabadla.internetcardledger.R
 import com.alabadla.internetcardledger.data.repository.BackupReminder
 import com.alabadla.internetcardledger.data.sync.DeviceRole
 import com.alabadla.internetcardledger.data.sync.SyncSessionEntity
@@ -65,6 +65,8 @@ fun SettingsScreen(
     var showChangePin by rememberSaveable { mutableStateOf(false) }
     var recoveryRequested by rememberSaveable { mutableStateOf(false) }
     var showRecoveryPin by rememberSaveable { mutableStateOf(false) }
+    var showAdvanced by rememberSaveable { mutableStateOf(false) }
+
     val recoveryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri == null) recoveryRequested = false else backupViewModel.export(context.contentResolver, uri)
     }
@@ -82,17 +84,20 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // General Device Info
             item {
                 state.settings?.identity?.let { identity ->
                     SettingsCard(stringResource(R.string.settings_this_device)) {
                         Text(identity.deviceName, style = MaterialTheme.typography.titleLarge)
-                        Text(stringResource(if (identity.role == DeviceRole.MAIN) R.string.settings_main_role else R.string.role_secondary), style = MaterialTheme.typography.bodyLarge)
-                        Button(onClick = { pinActionName = ProtectedAction.EDIT_IDENTITY.name }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                            Text(stringResource(R.string.settings_edit_identity))
-                        }
+                        Text(
+                            text = stringResource(if (identity.role == DeviceRole.MAIN) R.string.settings_main_role else R.string.role_secondary),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
                     }
                 }
             }
+
+            // Backup Reminders
             item {
                 SettingsCard(stringResource(R.string.settings_backup_reminder)) {
                     ReminderButtons(state.settings?.backupReminder ?: BackupReminder.WEEKLY, viewModel::updateReminder)
@@ -101,36 +106,84 @@ fun SettingsScreen(
                     }
                 }
             }
-            item { Text(stringResource(R.string.settings_approved_devices), style = MaterialTheme.typography.titleLarge) }
-            if (devices.isEmpty()) item { Text(stringResource(R.string.settings_no_approved_devices), style = MaterialTheme.typography.bodyLarge) }
-            items(devices, key = { it.deviceId }) { device ->
-                ElevatedCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(device.deviceName, style = MaterialTheme.typography.titleMedium)
-                        OutlinedButton(
-                            onClick = { deviceToRemoveId = device.deviceId; pinActionName = ProtectedAction.REMOVE_DEVICE.name },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                        ) { Text(stringResource(R.string.settings_remove_device)) }
-                    }
-                }
-            }
+
+            // Security PIN Settings
             item {
                 SettingsCard(stringResource(R.string.settings_security)) {
-                    Button(onClick = { showChangePin = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(stringResource(R.string.settings_change_pin)) }
+                    Button(onClick = { showChangePin = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                        Text(stringResource(R.string.settings_change_pin))
+                    }
                     OutlinedButton(
                         onClick = { recoveryRequested = true; recoveryLauncher.launch("recovery-backup.json") },
                         enabled = backupState !is BackupUiState.Working,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                    ) { Text(stringResource(R.string.settings_forgot_backup)) }
+                    ) {
+                        Text(stringResource(R.string.settings_forgot_backup))
+                    }
                     if (recoveryRequested) Text(stringResource(R.string.settings_recovery_required), style = MaterialTheme.typography.bodyLarge)
                 }
             }
-            item { Text(stringResource(R.string.settings_audit_log), style = MaterialTheme.typography.titleLarge) }
-            if (sessions.isEmpty()) item { Text(stringResource(R.string.settings_no_audit), style = MaterialTheme.typography.bodyLarge) }
-            items(sessions.take(10), key = { it.id }) { SessionRow(it) }
+
+            // Advanced Settings Section Toggle Button
             item {
-                val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0" }
-                Text(stringResource(R.string.settings_version, version), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(vertical = 20.dp))
+                OutlinedButton(
+                    onClick = { showAdvanced = !showAdvanced },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                ) {
+                    Text(
+                        text = if (showAdvanced) "إخفاء الإعدادات المتقدمة" else stringResource(R.string.action_advanced_settings),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+            }
+
+            if (showAdvanced) {
+                // Advanced Item 1: Device Role / Name edit
+                item {
+                    SettingsCard("تعديل هوية الهاتف") {
+                        Button(
+                            onClick = { pinActionName = ProtectedAction.EDIT_IDENTITY.name },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                        ) {
+                            Text(stringResource(R.string.settings_edit_identity))
+                        }
+                    }
+                }
+
+                // Advanced Item 2: Approved Devices
+                item { Text(stringResource(R.string.settings_approved_devices), style = MaterialTheme.typography.titleLarge) }
+                if (devices.isEmpty()) {
+                    item { Text(stringResource(R.string.settings_no_approved_devices), style = MaterialTheme.typography.bodyLarge) }
+                }
+                items(devices, key = { it.deviceId }) { device ->
+                    ElevatedCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(device.deviceName, style = MaterialTheme.typography.titleMedium)
+                            OutlinedButton(
+                                onClick = { deviceToRemoveId = device.deviceId; pinActionName = ProtectedAction.REMOVE_DEVICE.name },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                            ) { Text(stringResource(R.string.settings_remove_device)) }
+                        }
+                    }
+                }
+
+                // Advanced Item 3: Sync Audit Logs
+                item { Text(stringResource(R.string.settings_audit_log), style = MaterialTheme.typography.titleLarge) }
+                if (sessions.isEmpty()) {
+                    item { Text(stringResource(R.string.settings_no_audit), style = MaterialTheme.typography.bodyLarge) }
+                }
+                items(sessions.take(10), key = { it.id }) { SessionRow(it) }
+            }
+
+            // App Version
+            item {
+                val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "1.0.0" }
+                Text(
+                    text = stringResource(R.string.settings_version, version),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 20.dp),
+                )
             }
         }
     }

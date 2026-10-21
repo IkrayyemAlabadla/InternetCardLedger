@@ -26,6 +26,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -44,8 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alabadla.internetcardledger.R
 import com.alabadla.internetcardledger.data.local.entity.CustomerEntity
-import com.alabadla.internetcardledger.data.local.entity.PaymentEntity
-import com.alabadla.internetcardledger.data.local.entity.SaleEntity
+import com.alabadla.internetcardledger.ui.util.CurrencyFormatter
 import com.alabadla.internetcardledger.ui.viewmodel.CustomerDetailsState
 import com.alabadla.internetcardledger.ui.viewmodel.CustomerFormError
 import com.alabadla.internetcardledger.ui.viewmodel.CustomerFormState
@@ -148,26 +148,26 @@ fun CustomersScreen(
             if (showDeleteDialog) {
                 AlertDialog(
                     onDismissRequest = { if (!isDeleting) showDeleteDialog = false },
-                    title = { Text(stringResource(R.string.delete_customer_title)) },
+                    title = { Text(stringResource(R.string.delete_confirm_question)) },
                     text = { Text(stringResource(R.string.delete_customer_message)) },
                     confirmButton = {
                         Button(
                             onClick = viewModel::deleteSelectedCustomer,
                             enabled = !isDeleting,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                            ),
                         ) {
-                            Text(
-                                stringResource(
-                                    if (isDeleting) R.string.deleting else R.string.action_delete,
-                                ),
-                            )
+                            Text(stringResource(R.string.delete_confirm_action))
                         }
                     },
                     dismissButton = {
-                        TextButton(
+                        OutlinedButton(
                             onClick = { showDeleteDialog = false },
                             enabled = !isDeleting,
                         ) {
-                            Text(stringResource(R.string.action_cancel))
+                            Text(stringResource(R.string.action_back))
                         }
                     },
                 )
@@ -225,7 +225,7 @@ private fun CustomersList(
                 onClick = onCreate,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 52.dp),
+                    .heightIn(min = 64.dp),
             ) {
                 Icon(
                     Icons.Default.Add,
@@ -234,7 +234,7 @@ private fun CustomersList(
                 )
                 Text(
                     text = stringResource(R.string.action_add_customer),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.titleMedium,
                 )
             }
 
@@ -293,26 +293,26 @@ private fun CustomerCard(summary: CustomerSummary, onClick: () -> Unit) {
                 )
             }
 
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = "${stringResource(R.string.customer_total_sales)}: ${summary.totalSalesMinor}",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "${stringResource(R.string.customer_total_sales)}: ${CurrencyFormatter.formatMoney(summary.totalSalesMinor)}",
+                    style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    text = "${stringResource(R.string.customer_total_payments)}: ${summary.totalPaymentsMinor}",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "${stringResource(R.string.customer_total_payments)}: ${CurrencyFormatter.formatMoney(summary.totalPaymentsMinor)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = "${stringResource(R.string.customer_balance)}: ${CurrencyFormatter.formatMoney(summary.balanceMinor)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (summary.balanceMinor > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 )
             }
-            Text(
-                text = "${stringResource(R.string.customer_balance)}: ${summary.balanceMinor}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (summary.balanceMinor > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-            )
         }
     }
 }
@@ -379,9 +379,9 @@ private fun CustomerDetails(
                         modifier = Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        DetailRow(R.string.customer_total_sales, details.totalSalesMinor.toString())
-                        DetailRow(R.string.customer_total_payments, details.totalPaymentsMinor.toString())
-                        DetailRow(R.string.customer_balance, details.balanceMinor.toString())
+                        DetailRow(R.string.customer_total_sales, CurrencyFormatter.formatMoney(details.totalSalesMinor))
+                        DetailRow(R.string.customer_total_payments, CurrencyFormatter.formatMoney(details.totalPaymentsMinor))
+                        DetailRow(R.string.customer_balance, CurrencyFormatter.formatMoney(details.balanceMinor))
                     }
                 }
 
@@ -392,7 +392,7 @@ private fun CustomerDetails(
                     Button(
                         onClick = { onEdit(customer) },
                         enabled = !isDeleting,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.action_edit))
                         Text(stringResource(R.string.action_edit), modifier = Modifier.padding(start = 8.dp))
@@ -400,7 +400,7 @@ private fun CustomerDetails(
                     Button(
                         onClick = onDelete,
                         enabled = !isDeleting,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,
                             contentColor = MaterialTheme.colorScheme.onError,
@@ -427,12 +427,9 @@ private fun CustomerDetails(
                         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(text = sale.description, style = MaterialTheme.typography.titleMedium)
+                                val unitPriceStr = CurrencyFormatter.formatMoney(sale.unitPriceMinor)
                                 Text(
-                                    text = stringResource(
-                                        R.string.sale_summary,
-                                        sale.quantity,
-                                        sale.unitPriceMinor,
-                                    ),
+                                    text = "الكمية: ${sale.quantity} — سعر الوحدة: $unitPriceStr",
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                                 Text(
@@ -461,7 +458,7 @@ private fun CustomerDetails(
                         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = "${payment.amountMinor}",
+                                    text = CurrencyFormatter.formatMoney(payment.amountMinor),
                                     style = MaterialTheme.typography.titleMedium,
                                 )
                                 Text(
@@ -514,7 +511,7 @@ private fun CustomerForm(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             val errorText = when (state.error) {
                 CustomerFormError.NAME_REQUIRED -> stringResource(R.string.error_customer_name_required)
@@ -535,8 +532,10 @@ private fun CustomerForm(
                 onValueChange = onNameChange,
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.customer_name_required)) },
+                placeholder = { Text("مثال: أبو محمد") },
                 isError = state.error == CustomerFormError.NAME_REQUIRED,
                 singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge,
             )
 
             OutlinedTextField(
@@ -544,7 +543,9 @@ private fun CustomerForm(
                 onValueChange = onPhoneChange,
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.customer_phone_label)) },
+                placeholder = { Text("مثال: 0599123456") },
                 singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge,
             )
 
             OutlinedTextField(
@@ -553,6 +554,7 @@ private fun CustomerForm(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.customer_notes_label)) },
                 minLines = 3,
+                textStyle = MaterialTheme.typography.bodyLarge,
             )
 
             Button(
@@ -560,14 +562,14 @@ private fun CustomerForm(
                 enabled = !state.isSaving,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 52.dp),
+                    .heightIn(min = 64.dp),
             ) {
                 if (state.isSaving) {
                     CircularProgressIndicator(color = Color.White)
                 } else {
                     Text(
                         stringResource(R.string.action_save),
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.titleMedium,
                     )
                 }
             }

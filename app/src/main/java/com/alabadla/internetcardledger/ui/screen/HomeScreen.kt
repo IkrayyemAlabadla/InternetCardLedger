@@ -3,6 +3,7 @@ package com.alabadla.internetcardledger.ui.screen
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -31,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.alabadla.internetcardledger.R
 import com.alabadla.internetcardledger.domain.DashboardSummary
+import com.alabadla.internetcardledger.ui.util.CurrencyFormatter
 import com.alabadla.internetcardledger.ui.viewmodel.DashboardUiState
 
 @Composable
@@ -49,23 +51,19 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 28.dp),
+                .padding(horizontal = 20.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 600.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text(
                     text = stringResource(R.string.app_name),
                     style = MaterialTheme.typography.displaySmall,
                     color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = stringResource(R.string.dashboard_title),
-                    style = MaterialTheme.typography.titleLarge,
                 )
 
                 when (dashboardState) {
@@ -73,26 +71,11 @@ fun HomeScreen(
                     DashboardUiState.Error -> DashboardError()
                     is DashboardUiState.Content -> {
                         DashboardSummaryCards(summary = dashboardState.overview.summary)
-                        Text(
-                            text = stringResource(R.string.recent_activity),
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-                        if (dashboardState.overview.recentHistory.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.history_empty),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        } else {
-                            dashboardState.overview.recentHistory.forEach { record ->
-                                HistoryRecordCard(record = record, onClick = onHistory)
-                            }
-                        }
                     }
                 }
 
                 FeatureButton(
-                    text = stringResource(R.string.action_add_sale),
+                    text = stringResource(R.string.action_add_operation),
                     icon = Icons.Default.Add,
                     contentDescription = stringResource(R.string.icon_add_sale_description),
                     onClick = onNewSale,
@@ -137,7 +120,7 @@ private fun DashboardLoading() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 24.dp),
+            .padding(vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -160,55 +143,56 @@ private fun DashboardError() {
 
 @Composable
 private fun DashboardSummaryCards(summary: DashboardSummary) {
-    SummaryCard(
-        label = stringResource(R.string.dashboard_total_sales),
-        value = stringResource(R.string.money_minor_value, summary.totalSalesMinor),
-    )
-    SummaryCard(
-        label = stringResource(R.string.dashboard_total_payments),
-        value = stringResource(R.string.money_minor_value, summary.totalPaymentsMinor),
-    )
-    SummaryCard(
-        label = stringResource(R.string.dashboard_balance),
-        value = stringResource(R.string.money_minor_value, summary.outstandingBalanceMinor),
-        highlight = summary.outstandingBalanceMinor > 0L,
-    )
-    SummaryCard(
-        label = stringResource(R.string.dashboard_quantity),
-        value = summary.totalQuantity.toString(),
-    )
-    SummaryCard(
-        label = stringResource(R.string.dashboard_counts),
-        value = stringResource(
-            R.string.dashboard_counts_value,
-            summary.activeCustomers,
-            summary.activeSales,
-            summary.activePayments,
-        ),
-    )
-    if (summary.pendingChanges > 0) {
-        SummaryCard(
-            label = stringResource(R.string.pending_sync),
-            value = summary.pendingChanges.toString(),
-            highlight = true,
-        )
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.dashboard_title),
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+
+            SummaryRow(
+                label = stringResource(R.string.dashboard_total_sales),
+                value = CurrencyFormatter.formatMoney(summary.totalSalesMinor),
+            )
+            SummaryRow(
+                label = stringResource(R.string.dashboard_total_payments),
+                value = CurrencyFormatter.formatMoney(summary.totalPaymentsMinor),
+            )
+            SummaryRow(
+                label = stringResource(R.string.dashboard_balance),
+                value = CurrencyFormatter.formatMoney(summary.outstandingBalanceMinor),
+                highlight = summary.outstandingBalanceMinor > 0L,
+            )
+
+            if (summary.pendingChanges > 0) {
+                Text(
+                    text = "${stringResource(R.string.pending_sync)}: ${summary.pendingChanges}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun SummaryCard(label: String, value: String, highlight: Boolean = false) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(text = label, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineMedium,
-                color = if (highlight) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-            )
-        }
+private fun SummaryRow(label: String, value: String, highlight: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            color = if (highlight) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+        )
     }
 }
 
@@ -223,7 +207,7 @@ private fun FeatureButton(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 76.dp),
+            .heightIn(min = 68.dp),
         contentPadding = PaddingValues(horizontal = 22.dp, vertical = 16.dp),
     ) {
         Icon(
@@ -231,6 +215,6 @@ private fun FeatureButton(
             contentDescription = contentDescription,
             modifier = Modifier.padding(end = 14.dp),
         )
-        Text(text = text, style = MaterialTheme.typography.labelLarge)
+        Text(text = text, style = MaterialTheme.typography.titleMedium)
     }
 }

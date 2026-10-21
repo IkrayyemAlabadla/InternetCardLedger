@@ -4,17 +4,17 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alabadla.internetcardledger.R
 import com.alabadla.internetcardledger.data.local.entity.CustomerEntity
 import com.alabadla.internetcardledger.data.local.entity.SaleEntity
+import com.alabadla.internetcardledger.ui.util.CurrencyFormatter
 import com.alabadla.internetcardledger.ui.viewmodel.SaleFormError
 import com.alabadla.internetcardledger.ui.viewmodel.SaleFormState
 import com.alabadla.internetcardledger.ui.viewmodel.SalesViewModel
@@ -157,22 +158,26 @@ fun SalesScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { if (!isDeleting) showDeleteDialog = false },
-            title = { Text(stringResource(R.string.delete_sale_title)) },
+            title = { Text(stringResource(R.string.delete_confirm_question)) },
             text = { Text(stringResource(R.string.delete_sale_message)) },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = viewModel::deleteSelectedSale,
                     enabled = !isDeleting,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
                 ) {
-                    Text(stringResource(if (isDeleting) R.string.deleting else R.string.action_delete))
+                    Text(stringResource(R.string.delete_confirm_action))
                 }
             },
             dismissButton = {
-                TextButton(
+                OutlinedButton(
                     onClick = { showDeleteDialog = false },
                     enabled = !isDeleting,
                 ) {
-                    Text(stringResource(R.string.action_cancel))
+                    Text(stringResource(R.string.action_back))
                 }
             },
         )
@@ -218,7 +223,7 @@ private fun SalesList(
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.icon_add_sale_description))
                 Text(
                     text = stringResource(R.string.action_add_sale),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(start = 12.dp),
                 )
             }
@@ -260,8 +265,10 @@ private fun SaleCard(sale: SaleEntity, onClick: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(sale.description, style = MaterialTheme.typography.titleLarge)
+            val priceStr = CurrencyFormatter.formatMoney(sale.unitPriceMinor)
+            val totalStr = CurrencyFormatter.formatMoney(sale.quantity.toLong() * sale.unitPriceMinor)
             Text(
-                stringResource(R.string.sale_summary, sale.quantity, sale.unitPriceMinor),
+                "الكمية: ${sale.quantity} — السعر: $priceStr (الإجمالي: $totalStr)",
                 style = MaterialTheme.typography.bodyLarge,
             )
         }
@@ -304,10 +311,15 @@ private fun SaleDetails(
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 DetailRow(R.string.sale_description, sale.description)
-                DetailRow(R.string.sale_quantity, sale.quantity.toString())
-                DetailRow(R.string.sale_unit_price, sale.unitPriceMinor.toString())
+                DetailRow(R.string.sale_quantity, CurrencyFormatter.formatQuantity(sale.quantity))
+                DetailRow(R.string.sale_unit_price, CurrencyFormatter.formatMoney(sale.unitPriceMinor))
+                DetailRow(
+                    R.string.dashboard_total_sales,
+                    CurrencyFormatter.formatMoney(sale.quantity.toLong() * sale.unitPriceMinor),
+                )
                 DetailRow(R.string.sale_date, formatDate(sale.soldAt))
                 DetailRow(R.string.sale_notes, sale.notes ?: stringResource(R.string.no_notes))
+
                 Button(
                     onClick = onEdit,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
@@ -369,79 +381,114 @@ private fun SaleForm(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            // Section 1: Customer Link
             if (customers.isNotEmpty()) {
-                val selectedCustomerName = customers.find { it.id == state.customerId }?.name
-                    ?: stringResource(R.string.no_customer_selected)
-                Text(
-                    text = "${stringResource(R.string.customer_select_label)}: $selectedCustomerName",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { onCustomerIdChanged(null) },
-                        enabled = !state.isSaving && state.customerId != null,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                    ) { Text(stringResource(R.string.no_customer_selected)) }
-                    customers.forEach { customer ->
-                        val selected = state.customerId == customer.id
-                        if (selected) {
-                            Button(
-                                onClick = {},
-                                enabled = false,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                            ) { Text(customer.name) }
-                        } else {
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        val selectedCustomerName = customers.find { it.id == state.customerId }?.name
+                            ?: stringResource(R.string.no_customer_selected)
+                        Text(
+                            text = "${stringResource(R.string.customer_select_label)}: $selectedCustomerName",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(
-                                onClick = { onCustomerIdChanged(customer.id) },
-                                enabled = !state.isSaving,
+                                onClick = { onCustomerIdChanged(null) },
+                                enabled = !state.isSaving && state.customerId != null,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                            ) { Text(customer.name) }
+                            ) { Text(stringResource(R.string.no_customer_selected)) }
+                            customers.forEach { customer ->
+                                val selected = state.customerId == customer.id
+                                if (selected) {
+                                    Button(
+                                        onClick = {},
+                                        enabled = false,
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                                    ) { Text(customer.name) }
+                                } else {
+                                    OutlinedButton(
+                                        onClick = { onCustomerIdChanged(customer.id) },
+                                        enabled = !state.isSaving,
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                                    ) { Text(customer.name) }
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            OutlinedTextField(
-                value = state.description,
-                onValueChange = onDescriptionChanged,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.sale_description_required)) },
-                enabled = !state.isSaving,
-                textStyle = MaterialTheme.typography.bodyLarge,
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = state.quantity,
-                onValueChange = onQuantityChanged,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.sale_quantity_required)) },
-                enabled = !state.isSaving,
-                textStyle = MaterialTheme.typography.bodyLarge,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = state.unitPriceMinor,
-                onValueChange = onPriceChanged,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.sale_unit_price_required)) },
-                supportingText = { Text(stringResource(R.string.sale_price_help)) },
-                enabled = !state.isSaving,
-                textStyle = MaterialTheme.typography.bodyLarge,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = state.notes,
-                onValueChange = onNotesChanged,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
-                label = { Text(stringResource(R.string.sale_notes)) },
-                enabled = !state.isSaving,
-                textStyle = MaterialTheme.typography.bodyLarge,
-                minLines = 3,
-            )
+            // Section 2: Details & Price
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(
+                        text = "تفاصيل البيع والسعر",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+
+                    OutlinedTextField(
+                        value = state.description,
+                        onValueChange = onDescriptionChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.sale_description_required)) },
+                        placeholder = { Text("مثال: كرت نت 50 جيجا") },
+                        enabled = !state.isSaving,
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                        singleLine = true,
+                    )
+
+                    OutlinedTextField(
+                        value = state.quantity,
+                        onValueChange = onQuantityChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.sale_quantity_required)) },
+                        placeholder = { Text("مثال: 1") },
+                        enabled = !state.isSaving,
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                    )
+
+                    OutlinedTextField(
+                        value = state.unitPriceMinor,
+                        onValueChange = onPriceChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.sale_unit_price_required)) },
+                        placeholder = { Text("مثال: 50") },
+                        trailingIcon = {
+                            Text(
+                                text = stringResource(R.string.currency_shekel),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(end = 12.dp),
+                            )
+                        },
+                        enabled = !state.isSaving,
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                    )
+
+                    OutlinedTextField(
+                        value = state.notes,
+                        onValueChange = onNotesChanged,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                        label = { Text(stringResource(R.string.sale_notes)) },
+                        enabled = !state.isSaving,
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                        minLines = 2,
+                    )
+                }
+            }
+
             if (errorText != null) {
                 Text(
                     text = errorText,
@@ -449,15 +496,16 @@ private fun SaleForm(
                     color = MaterialTheme.colorScheme.error,
                 )
             }
+
             Button(
                 onClick = onSave,
                 enabled = !state.isSaving,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
             ) {
                 if (state.isSaving) {
                     CircularProgressIndicator(color = Color.White)
                 } else {
-                    Text(stringResource(R.string.action_save), style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.action_save), style = MaterialTheme.typography.titleMedium)
                 }
             }
         }

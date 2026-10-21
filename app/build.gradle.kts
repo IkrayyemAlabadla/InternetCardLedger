@@ -4,6 +4,17 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val releaseStoreFile = providers.environmentVariable("ICL_RELEASE_STORE_FILE").orNull
+val releaseStorePassword = providers.environmentVariable("ICL_RELEASE_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("ICL_RELEASE_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("ICL_RELEASE_KEY_PASSWORD").orNull
+val releaseCredentialsAvailable = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.alabadla.internetcardledger"
     compileSdk {
@@ -15,13 +26,31 @@ android {
         minSdk = 24
         targetSdk = 37
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
         compose = true
+    }
+    signingConfigs {
+        if (releaseCredentialsAvailable) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseStoreFile))
+                storePassword = requireNotNull(releaseStorePassword)
+                keyAlias = requireNotNull(releaseKeyAlias)
+                keyPassword = requireNotNull(releaseKeyPassword)
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            isDebuggable = false
+            if (releaseCredentialsAvailable) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
     sourceSets.named("androidTest") {
         assets.directories.add("$projectDir/schemas")

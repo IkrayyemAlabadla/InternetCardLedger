@@ -1,32 +1,30 @@
 package com.alabadla.internetcardledger.data.sync.transport
 
+import com.alabadla.internetcardledger.data.local.SyncStatus
+import com.alabadla.internetcardledger.data.local.entity.CustomerEntity
 import com.alabadla.internetcardledger.data.sync.SyncBatch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class FakeSyncTransport : SyncTransport {
-
     private val _state = MutableStateFlow(TransportState())
     override val state: StateFlow<TransportState> = _state.asStateFlow()
 
     private var batchListener: (suspend (endpointId: String, batch: SyncBatch) -> Unit)? = null
-    var simulateSendFailure: Boolean = false
-    var simulateCorruptedBatchOnReceive: Boolean = false
-
+    var simulateSendFailure = false
+    var simulateCorruptedBatchOnReceive = false
     val sentBatches = mutableListOf<Pair<String, SyncBatch>>()
 
     override fun startAdvertising(localDeviceName: String) {
         _state.value = TransportState(
             stage = TransportStage.WAITING_APPROVAL,
-            discoveredEndpoint = TransportDiscoveredEndpoint("endpoint-fake-1", "هاتف العم الرئيسي", "123456"),
+            discoveredEndpoint = TransportDiscoveredEndpoint("endpoint-fake-1", "هاتف العمل الرئيسي", "123456"),
         )
     }
 
     override fun startDiscovery() {
-        _state.value = TransportState(
-            stage = TransportStage.SEARCHING,
-        )
+        _state.value = TransportState(stage = TransportStage.SEARCHING)
     }
 
     fun simulateEndpointFound(endpointId: String, name: String, authCode: String = "654321") {
@@ -48,54 +46,47 @@ class FakeSyncTransport : SyncTransport {
     }
 
     override fun acceptConnection(endpointId: String) {
-        val currentDiscovered = _state.value.discoveredEndpoint
         _state.value = TransportState(
             stage = TransportStage.RECEIVING_DATA,
-            discoveredEndpoint = currentDiscovered,
+            discoveredEndpoint = _state.value.discoveredEndpoint,
             connectedEndpointId = endpointId,
         )
     }
 
     override fun rejectConnection(endpointId: String) {
-        _state.value = TransportState(
-            stage = TransportStage.FAILED,
-            errorMessage = "تم رفض الاتصال من قبل المستخدم",
-        )
+        _state.value = TransportState(stage = TransportStage.FAILED, errorMessage = "رفض المستخدم الاتصال")
     }
 
     override suspend fun sendBatch(endpointId: String, batch: SyncBatch): Boolean {
         if (simulateSendFailure) {
-            _state.value = TransportState(
-                stage = TransportStage.FAILED,
-                errorMessage = "فشل إرسال حزمة البيانات",
-            )
+            _state.value = TransportState(stage = TransportStage.FAILED, errorMessage = "فشل إرسال حزمة البيانات")
             return false
         }
-        sentBatches.add(endpointId to batch)
+        sentBatches += endpointId to batch
         _state.value = _state.value.copy(stage = TransportStage.SENDING_DATA)
         return true
     }
 
     suspend fun simulateReceiveBatch(endpointId: String, batch: SyncBatch) {
         val listener = batchListener ?: return
-        if (simulateCorruptedBatchOnReceive) {
-            val corruptBatch = batch.copy(
-                customers = batch.customers + com.alabadla.internetcardledger.data.local.entity.CustomerEntity(
+        val received = if (simulateCorruptedBatchOnReceive) {
+            batch.copy(
+                customers = batch.customers + CustomerEntity(
                     id = "corrupt-id",
-                    name = "", // Corrupted blank name
+                    name = "",
                     phone = null,
                     notes = null,
-                    createdAt = 1000L,
-                    updatedAt = 1000L,
+                    createdAt = 1_000L,
+                    updatedAt = 1_000L,
                     createdByDeviceId = "corrupt",
-                    syncStatus = com.alabadla.internetcardledger.data.local.SyncStatus.PENDING,
+                    syncStatus = SyncStatus.PENDING,
                     isDeleted = false,
                 ),
             )
-            listener(endpointId, corruptBatch)
         } else {
-            listener(endpointId, batch)
+            batch
         }
+        listener(endpointId, received)
     }
 
     override fun setBatchReceivedListener(listener: (suspend (endpointId: String, batch: SyncBatch) -> Unit)?) {
