@@ -198,7 +198,7 @@
     <string name="onboarding_once">هذا الإعداد يظهر مرة واحدة فقط عند التشغيل الأول.</string>
     <string name="device_name_label">اسم هذا الهاتف</string>
     <string name="device_role_choose">اختر دور الهاتف</string>
-    <string name="main_device_warning">تنبيه مهم: اختر "الهاتف الرئيسي" فقط إذا كان هذا هاتف العم الرئيسي. بقية الهواتف يجب أن تكون "هاتف إضافي".</string>
+    <string name="main_device_warning">تنبيه مهم: اختر "الهاتف الرئيسي" فقط إذا كان هذا هاتف الحج زياد ابو خليل. بقية الهواتف يجب أن تكون "هاتف إضافي".</string>
     <string name="role_secondary">هاتف إضافي</string>
     <string name="role_main">الهاتف الرئيسي</string>
     <string name="role_selected_main">المحدد: الهاتف الرئيسي</string>
@@ -208,11 +208,11 @@
     <string name="pin_confirm_label">تأكيد الرقم السري</string>
     <string name="onboarding_finish">حفظ وبدء الاستخدام</string>
     <string name="main_confirm_title">تأكيد اختيار الهاتف الرئيسي</string>
-    <string name="main_confirm_message">هل أنت متأكد أن هذا هو هاتف العم الرئيسي؟ لا تختار هذا الدور إلا لهاتف العم.</string>
-    <string name="main_confirm_action">نعم، هذا هاتف العم</string>
+    <string name="main_confirm_message">هل أنت متأكد أن هذا هو هاتف الحج زياد ابو خليل؟ لا تختار هذا الدور إلا لهاتف الحج زياد ابو خليل.</string>
+    <string name="main_confirm_action">نعم، هذا هاتف الحج زياد ابو خليل</string>
     <string name="action_ok">حسنًا</string>
     <string name="settings_this_device">هذا الهاتف</string>
-    <string name="settings_main_role">الهاتف الرئيسي — هاتف العم</string>
+    <string name="settings_main_role">الهاتف الرئيسي — هاتف الحج زياد ابو خليل</string>
     <string name="settings_edit_identity">تعديل اسم الهاتف أو الدور</string>
     <string name="settings_backup_reminder">تذكير النسخ الاحتياطي</string>
     <string name="settings_open_backup">فتح النسخ الاحتياطي والاستعادة</string>
@@ -236,7 +236,7 @@
     <string name="role_selected_secondary_short">المحدد: إضافي</string>
     <string name="action_save_short">حفظ</string>
     <string name="warning_title">تحذير</string>
-    <string name="main_only_warning">يجب أن يكون هاتف العم وحده هو الهاتف الرئيسي.</string>
+    <string name="main_only_warning">يجب أن يكون هاتف الحج زياد ابو خليل وحده هو الهاتف الرئيسي.</string>
     <string name="main_confirm_short">تأكيد الهاتف الرئيسي</string>
     <string name="pin_reset_title">تعيين رقم سري جديد</string>
     <string name="pin_current">الرقم السري الحالي</string>
@@ -247,4 +247,36 @@
     <string name="sync_status_conflict">يحتاج مراجعة</string>
     <string name="sync_status_failed">غير مكتملة</string>
     <string name="audit_date_status">%1$s — %2$s</string>
+
+    <!-- Card Types & Payment Status -->
+    <string name="card_six_hours_title">بطاقة 6 ساعات</string>
+    <string name="card_twelve_hours_title">بطاقة 12 ساعة</string>
+    <string name="card_six_hours_price">بطاقة 6 ساعات (1 شيكل)</string>
+    <string name="card_twelve_hours_price">بطاقة 12 ساعة (2 شيكل)</string>
+    <string name="payment_status_paid">مدفوع</string>
+    <string name="payment_status_unpaid">غير مدفوع</string>
+    <string name="payment_status_partially_paid">مدفوع جزئيًا</string>
+    <string name="label_payment_status">حالة الدفع</string>
+    <string name="label_paid_amount">المبلغ المدفوع بالشيكل</string>
+    <string name="label_remaining_amount">المبلغ المتبقي</string>
+    <string name="label_select_card_type">نوع البطاقة</string>
+    <string name="label_total_amount">المبلغ الإجمالي</string>
+    <string name="calculation_display">%1$d × %2$s = %3$s</string>
+    <string name="error_paid_amount_invalid">المبلغ المدفوع يجب أن يكون أكبر من صفر وأقل من الإجمالي.</string>
+    <string name="action_select_customer">اختيار الزبون</string>
+    <string name="dialog_select_customer_title">اختيار الزبون</string>
+    <string name="search_customer_placeholder">ابحث عن اسم الزبون…</string>
+    <string name="action_create_new_customer">إضافة زبون جديد</string>
+    <string name="action_select_calendar_date">اختيار تاريخ بالتقويم</string>
+    <string name="action_clear_date_filter">عرض كل التواريخ</string>
+    <string name="selected_calendar_date">التاريخ المحدد: %1$s</string>
+    <string name="sale_list_summary">الكمية: %1$d — الإجمالي: %2$s</string>
+    <string name="remaining_amount_value">المبلغ المتبقي: %1$s</string>
+    <string name="pin_show">إظهار الرقم السري</string>
+    <string name="pin_hide">إخفاء الرقم السري</string>
+    <string name="selected_customer_value">الزبون المرتبط: %1$s</string>
+    <string name="quantity_example">مثال: 3</string>
+    <string name="paid_amount_example">مثال: 5</string>
+    <string name="customer_name_example">مثال: أبو أحمد</string>
+    <string name="customer_phone_example">مثال: 0599123456</string>
 </resources>

@@ -4,9 +4,12 @@ import android.util.JsonReader
 import android.util.JsonToken
 import android.util.JsonWriter
 import com.alabadla.internetcardledger.data.local.SyncStatus
+import com.alabadla.internetcardledger.data.local.entity.CardType
 import com.alabadla.internetcardledger.data.local.entity.CustomerEntity
 import com.alabadla.internetcardledger.data.local.entity.PaymentEntity
+import com.alabadla.internetcardledger.data.local.entity.PaymentStatus
 import com.alabadla.internetcardledger.data.local.entity.SaleEntity
+import com.alabadla.internetcardledger.domain.SalePaymentRules
 import java.io.FilterInputStream
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -58,7 +61,7 @@ object BackupJsonCodec {
 
     fun validate(document: BackupDocument) {
         if (document.format != BACKUP_FORMAT_NAME) invalid("هذا الملف ليس نسخة احتياطية للتطبيق.")
-        if (document.version != BACKUP_FORMAT_VERSION) invalid("إصدار النسخة الاحتياطية غير مدعوم.")
+        if (document.version !in 1..BACKUP_FORMAT_VERSION) invalid("إصدار النسخة الاحتياطية غير مدعوم.")
         if (document.createdAt <= 0L) invalid("تاريخ النسخة الاحتياطية غير صالح.")
         requireUuid(document.deviceId, "معرّف الجهاز")
         ensureUnique(document.customers.map { it.id }, "الزبائن")
@@ -77,6 +80,12 @@ object BackupJsonCodec {
             }
             if (runCatching { Math.multiplyExact(sale.quantity.toLong(), sale.unitPriceMinor) }.isFailure) {
                 invalid("تحتوي النسخة على قيمة بيع أكبر من الحد المسموح.")
+            }
+            val total = sale.quantity.toLong() * sale.unitPriceMinor
+            if (document.version >= 2 &&
+                !SalePaymentRules.isConsistent(total, sale.paymentStatus, sale.paidAmountMinor)
+            ) {
+                invalid("تحتوي النسخة على حالة دفع أو نوع بطاقة غير صالح.")
             }
             if (sale.customerId != null && sale.customerId !in customerIds) {
                 invalid("تحتوي النسخة على بيع مرتبط بزبون غير موجود.")
@@ -158,10 +167,20 @@ object BackupJsonCodec {
 
     private fun JsonReader.readSale(): SaleEntity {
         val values = readFields()
+        val cardType = values.optionalString("cardType")?.let { value ->
+            runCatching { CardType.valueOf(value) }.getOrElse { invalid("نوع البطاقة في النسخة غير صالح.") }
+        } ?: CardType.SIX_HOURS
+        val paymentStatus = values.optionalString("paymentStatus")?.let { value ->
+            runCatching { PaymentStatus.valueOf(value) }.getOrElse { invalid("حالة الدفع في النسخة غير صالحة.") }
+        } ?: PaymentStatus.UNPAID
+        val quantity = values.requiredInt("quantity")
+        val unitPriceMinor = values.requiredLong("unitPriceMinor")
+        val paidAmountMinor = values.nullableLong("paidAmountMinor") ?: 0L
         return SaleEntity(
             id = values.requiredString("id"), customerId = values.nullableString("customerId"),
-            description = values.requiredString("description"), quantity = values.requiredInt("quantity"),
-            unitPriceMinor = values.requiredLong("unitPriceMinor"), soldAt = values.requiredLong("soldAt"),
+            description = values.requiredString("description"), quantity = quantity,
+            unitPriceMinor = unitPriceMinor, cardType = cardType, paymentStatus = paymentStatus,
+            paidAmountMinor = paidAmountMinor, soldAt = values.requiredLong("soldAt"),
             notes = values.nullableString("notes"), createdAt = values.requiredLong("createdAt"),
             updatedAt = values.requiredLong("updatedAt"),
             createdByDeviceId = values.requiredString("createdByDeviceId"),
@@ -228,6 +247,8 @@ object BackupJsonCodec {
         writeCommon(value.id, value.createdAt, value.updatedAt, value.createdByDeviceId, value.syncStatus, value.isDeleted)
         name("customerId").value(value.customerId); name("description").value(value.description)
         name("quantity").value(value.quantity.toLong()); name("unitPriceMinor").value(value.unitPriceMinor)
+        name("cardType").value(value.cardType.name); name("paymentStatus").value(value.paymentStatus.name)
+        name("paidAmountMinor").value(value.paidAmountMinor)
         name("soldAt").value(value.soldAt); name("notes").value(value.notes)
         endObject()
     }
@@ -246,6 +267,14 @@ object BackupJsonCodec {
     private fun Map<String, Any?>.nullableString(name: String): String? {
         if (!containsKey(name)) invalid("الحقل $name مفقود.")
         return this[name] as? String
+    }
+
+    private fun Map<String, Any?>.optionalString(name: String): String? = this[name] as? String
+
+    private fun Map<String, Any?>.nullableLong(name: String): Long? {
+        if (!containsKey(name)) return null
+        val str = this[name] as? String ?: return null
+        return str.toLongOrNull()
     }
 
     private fun Map<String, Any?>.requiredLong(name: String): Long =

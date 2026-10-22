@@ -5,7 +5,7 @@ import com.alabadla.internetcardledger.data.local.entity.PaymentEntity
 import com.alabadla.internetcardledger.data.local.entity.SaleEntity
 
 const val BACKUP_FORMAT_NAME = "internet-card-ledger-backup"
-const val BACKUP_FORMAT_VERSION = 1
+const val BACKUP_FORMAT_VERSION = 2
 
 data class BackupDocument(
     val format: String = BACKUP_FORMAT_NAME,

@@ -1,5 +1,6 @@
 package com.alabadla.internetcardledger.ui.screen
 
+import android.app.DatePickerDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -17,11 +18,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -32,6 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,6 +49,8 @@ import com.alabadla.internetcardledger.ui.util.CurrencyFormatter
 import com.alabadla.internetcardledger.ui.viewmodel.DashboardViewModel
 import com.alabadla.internetcardledger.ui.viewmodel.HistoryUiState
 import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -69,6 +76,7 @@ fun HistoryScreen(
             onQueryChange = viewModel::updateSearchQuery,
             onTypeChange = viewModel::updateRecordType,
             onDateChange = viewModel::updateDateFilter,
+            onCalendarDateChange = viewModel::updateCalendarDate,
             onOpen = { record ->
                 when {
                     record.isDeleted -> selectedKey = record.key
@@ -88,9 +96,12 @@ private fun HistoryList(
     onQueryChange: (String) -> Unit,
     onTypeChange: (HistoryRecordType) -> Unit,
     onDateChange: (HistoryDateFilter) -> Unit,
+    onCalendarDateChange: (Long?) -> Unit,
     onOpen: (HistoryRecord) -> Unit,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
+
     Scaffold(
         topBar = { SecondaryTopBar(stringResource(R.string.history_title), onBack) },
     ) { innerPadding ->
@@ -112,6 +123,63 @@ private fun HistoryList(
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge,
             )
+
+            // Date Picker Button & Active Date Card
+            val selectedCalendarDate = state.selectedCalendarDate
+            if (selectedCalendarDate != null) {
+                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        val dateFormatted = SimpleDateFormat("yyyy/MM/dd", Locale.forLanguageTag("ar"))
+                            .format(Date(selectedCalendarDate))
+                        Text(
+                            text = stringResource(R.string.selected_calendar_date, dateFormatted),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        OutlinedButton(
+                            onClick = { onCalendarDateChange(null) },
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) {
+                            Text(stringResource(R.string.action_clear_date_filter))
+                        }
+                    }
+                }
+            } else {
+                Button(
+                    onClick = {
+                        val nowCal = Calendar.getInstance()
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                val cal = Calendar.getInstance().apply {
+                                    set(Calendar.YEAR, year)
+                                    set(Calendar.MONTH, month)
+                                    set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                                }
+                                onCalendarDateChange(cal.timeInMillis)
+                            },
+                            nowCal.get(Calendar.YEAR),
+                            nowCal.get(Calendar.MONTH),
+                            nowCal.get(Calendar.DAY_OF_MONTH),
+                        ).show()
+                    },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                ) {
+                    Icon(
+                        Icons.Default.DateRange,
+                        contentDescription = stringResource(R.string.action_select_calendar_date),
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                    Text(stringResource(R.string.action_select_calendar_date))
+                }
+            }
+
             Text(stringResource(R.string.filter_record_type), style = MaterialTheme.typography.titleMedium)
             Row(
                 modifier = Modifier
@@ -128,20 +196,23 @@ private fun HistoryList(
                     )
                 }
             }
-            Text(stringResource(R.string.filter_date), style = MaterialTheme.typography.titleMedium)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                HistoryDateFilter.entries.forEach { date ->
-                    FilterChip(
-                        selected = state.dateFilter == date,
-                        onClick = { onDateChange(date) },
-                        label = { Text(stringResource(date.labelResource())) },
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    )
+
+            if (state.selectedCalendarDate == null) {
+                Text(stringResource(R.string.filter_date), style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    HistoryDateFilter.entries.forEach { date ->
+                        FilterChip(
+                            selected = state.dateFilter == date,
+                            onClick = { onDateChange(date) },
+                            label = { Text(stringResource(date.labelResource())) },
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        )
+                    }
                 }
             }
 
@@ -193,6 +264,7 @@ fun HistoryRecordCard(record: HistoryRecord, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            record.paymentStatus?.let { PaymentStatusChip(it) }
             Text(
                 text = formatHistoryDate(record.updatedAt),
                 style = MaterialTheme.typography.bodyMedium,
@@ -232,6 +304,9 @@ private fun HistoryDetails(record: HistoryRecord, onBack: () -> Unit) {
             }
             record.amountMinor?.let { amount ->
                 HistoryDetailRow(R.string.history_amount, CurrencyFormatter.formatMoney(amount))
+            }
+            record.paymentStatus?.let { status ->
+                HistoryDetailRow(R.string.label_payment_status, stringResource(status.labelResource))
             }
             HistoryDetailRow(R.string.history_updated_at, formatHistoryDate(record.updatedAt))
             if (record.isPending) {

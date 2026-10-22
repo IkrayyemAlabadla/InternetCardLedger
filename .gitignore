@@ -1,5 +1,7 @@
 *.iml
 .gradle
+.gradle-user
+.gradle*
 /.android
 /local.properties
 /.idea/caches
@@ -15,3 +17,5 @@
 .cxx
 .kotlin
 local.properties
+.artifacts/
+*.apk

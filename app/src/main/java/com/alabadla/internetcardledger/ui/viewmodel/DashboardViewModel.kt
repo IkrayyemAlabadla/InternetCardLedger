@@ -33,6 +33,7 @@ data class HistoryUiState(
     val query: String = "",
     val type: HistoryRecordType = HistoryRecordType.ALL,
     val dateFilter: HistoryDateFilter = HistoryDateFilter.ALL,
+    val selectedCalendarDate: Long? = null,
 )
 
 class DashboardViewModel(
@@ -44,6 +45,7 @@ class DashboardViewModel(
     private val searchQuery = MutableStateFlow("")
     private val recordType = MutableStateFlow(HistoryRecordType.ALL)
     private val dateFilter = MutableStateFlow(HistoryDateFilter.ALL)
+    private val selectedCalendarDate = MutableStateFlow<Long?>(null)
 
     val dashboardState: StateFlow<DashboardUiState> = combine(
         customerRepository.observeAllCustomers(),
@@ -70,13 +72,15 @@ class DashboardViewModel(
         searchQuery,
         recordType,
         dateFilter,
-    ) { dashboard, query, type, date ->
+        selectedCalendarDate,
+    ) { dashboard, query, type, date, calendarDate ->
         when (dashboard) {
             DashboardUiState.Loading -> HistoryUiState(
                 isLoading = true,
                 query = query,
                 type = type,
                 dateFilter = date,
+                selectedCalendarDate = calendarDate,
             )
             DashboardUiState.Error -> HistoryUiState(
                 isLoading = false,
@@ -84,6 +88,7 @@ class DashboardViewModel(
                 query = query,
                 type = type,
                 dateFilter = date,
+                selectedCalendarDate = calendarDate,
             )
             is DashboardUiState.Content -> HistoryUiState(
                 isLoading = false,
@@ -92,11 +97,13 @@ class DashboardViewModel(
                     query = query,
                     type = type,
                     dateFilter = date,
+                    selectedCalendarDate = calendarDate,
                     now = currentTimeMillis(),
                 ),
                 query = query,
                 type = type,
                 dateFilter = date,
+                selectedCalendarDate = calendarDate,
             )
         }
     }.stateIn(
@@ -115,6 +122,10 @@ class DashboardViewModel(
 
     fun updateDateFilter(value: HistoryDateFilter) {
         dateFilter.value = value
+    }
+
+    fun updateCalendarDate(value: Long?) {
+        selectedCalendarDate.value = value
     }
 
     companion object {

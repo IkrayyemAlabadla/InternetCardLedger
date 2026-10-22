@@ -7,6 +7,7 @@ import com.alabadla.internetcardledger.data.local.SyncStatus
 import com.alabadla.internetcardledger.data.local.entity.CustomerEntity
 import com.alabadla.internetcardledger.data.local.entity.PaymentEntity
 import com.alabadla.internetcardledger.data.local.entity.SaleEntity
+import com.alabadla.internetcardledger.domain.SalePaymentRules
 import java.util.UUID
 
 class InvalidSyncBatchException(message: String) : Exception(message)
@@ -41,7 +42,7 @@ class SyncEngine(
         }
 
         val name = deviceName?.trim()?.takeIf(String::isNotEmpty)
-            ?: if (role == DeviceRole.MAIN) "هاتف العم الرئيسي" else "هاتف فرعي"
+            ?: if (role == DeviceRole.MAIN) "هاتف الحج زياد ابو خليل" else "هاتف فرعي"
 
         val identity = DeviceIdentityEntity(
             deviceId = deviceId,
@@ -164,6 +165,10 @@ class SyncEngine(
                 }
                 if (runCatching { Math.multiplyExact(sale.quantity.toLong(), sale.unitPriceMinor) }.isFailure) {
                     throw InvalidSyncBatchException("تحتوي المزامنة على قيمة بيع أكبر من الحد المسموح.")
+                }
+                val total = sale.quantity.toLong() * sale.unitPriceMinor
+                if (!SalePaymentRules.isConsistent(total, sale.paymentStatus, sale.paidAmountMinor)) {
+                    throw InvalidSyncBatchException("تحتوي المزامنة على حالة دفع غير صالحة.")
                 }
             }
             batch.payments.forEach { payment ->
@@ -442,6 +447,9 @@ class SyncEngine(
             a.description == b.description &&
             a.quantity == b.quantity &&
             a.unitPriceMinor == b.unitPriceMinor &&
+            a.cardType == b.cardType &&
+            a.paymentStatus == b.paymentStatus &&
+            a.paidAmountMinor == b.paidAmountMinor &&
             a.soldAt == b.soldAt &&
             a.notes == b.notes &&
             a.isDeleted == b.isDeleted

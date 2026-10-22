@@ -1,5 +1,6 @@
 package com.alabadla.internetcardledger.ui.screen
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import android.text.format.DateFormat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -8,10 +9,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
@@ -31,8 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alabadla.internetcardledger.R
@@ -316,33 +319,61 @@ private fun IdentityEditor(initialName: String, initialRole: DeviceRole, onDismi
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ChangePinDialog(recovery: Boolean, onDismiss: () -> Unit, onSave: (String, String, String) -> Unit) {
     var current by remember { mutableStateOf("") }
     var newPin by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
+    val saveRequester = remember { BringIntoViewRequester() }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(if (recovery) R.string.pin_reset_title else R.string.settings_change_pin)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (!recovery) PinInput(stringResource(R.string.pin_current), current) { current = it }
-                PinInput(stringResource(R.string.pin_new), newPin) { newPin = it }
-                PinInput(stringResource(R.string.pin_confirm_new), confirmation) { confirmation = it }
+            Column(
+                modifier = Modifier.imePadding().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (!recovery) PinInput(
+                    label = stringResource(R.string.pin_current),
+                    value = current,
+                    onChange = { current = it },
+                )
+                PinInput(
+                    label = stringResource(R.string.pin_new),
+                    value = newPin,
+                    onChange = { newPin = it },
+                )
+                PinInput(
+                    label = stringResource(R.string.pin_confirm_new),
+                    value = confirmation,
+                    onChange = { confirmation = it },
+                    followingRequester = saveRequester,
+                )
             }
         },
-        confirmButton = { Button(onClick = { onSave(current, newPin, confirmation) }, enabled = newPin.length >= 4) { Text(stringResource(R.string.action_save_short)) } },
+        confirmButton = {
+            Button(
+                onClick = { onSave(current, newPin, confirmation) },
+                enabled = newPin.length >= 4,
+                modifier = Modifier.bringIntoViewRequester(saveRequester),
+            ) { Text(stringResource(R.string.action_save_short)) }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
 @Composable
-private fun PinInput(label: String, value: String, onChange: (String) -> Unit) {
-    OutlinedTextField(
-        value, { onChange(it.filter(Char::isDigit).take(8)) }, label = { Text(label) },
-        singleLine = true,
-        visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+private fun PinInput(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    followingRequester: BringIntoViewRequester? = null,
+) {
+    SecurePinField(
+        label = label,
+        value = value,
+        onValueChange = onChange,
+        followingRequester = followingRequester,
     )
 }

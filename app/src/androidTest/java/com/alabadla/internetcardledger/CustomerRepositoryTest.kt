@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.alabadla.internetcardledger.data.DeviceIdProvider
 import com.alabadla.internetcardledger.data.local.LedgerDatabase
 import com.alabadla.internetcardledger.data.local.SyncStatus
+import com.alabadla.internetcardledger.data.local.entity.PaymentStatus
 import com.alabadla.internetcardledger.data.repository.CustomerRepository
 import com.alabadla.internetcardledger.data.repository.PaymentRepository
 import com.alabadla.internetcardledger.data.repository.SaleRepository
@@ -147,8 +148,8 @@ class CustomerRepositoryTest {
         val customerId = customerRepository.addCustomer("سامر علي")
 
         // Add 2 sales for this customer: quantity 2 @ 1000 = 2000, quantity 1 @ 3000 = 3000 -> Total = 5000
-        saleRepository.addSale(customerId, "بطاقة فئة 10", 2, 1_000L)
-        saleRepository.addSale(customerId, "بطاقة فئة 30", 1, 3_000L)
+        saleRepository.addSale(customerId, "بطاقة فئة 10", 2, 1_000L, paymentStatus = PaymentStatus.UNPAID, paidAmountMinor = 0L)
+        saleRepository.addSale(customerId, "بطاقة فئة 30", 1, 3_000L, paymentStatus = PaymentStatus.UNPAID, paidAmountMinor = 0L)
 
         // Add 1 payment for this customer: 2000 -> Total = 2000
         paymentRepository.addPayment(customerId, null, 2_000L)

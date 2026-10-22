@@ -86,7 +86,8 @@ class CustomersViewModel(
             val customerPayments = paymentsByCustomer[customer.id].orEmpty()
 
             val totalSales = customerSales.sumOf { it.quantity.toLong() * it.unitPriceMinor }
-            val totalPayments = customerPayments.sumOf { it.amountMinor }
+            val totalPayments = customerSales.sumOf { it.paidAmountMinor } +
+                customerPayments.sumOf { it.amountMinor }
 
             CustomerSummary(
                 customer = customer,
@@ -112,7 +113,8 @@ class CustomersViewModel(
             val customerPayments = payments.filter { it.customerId == customer.id }
 
             val totalSales = customerSales.sumOf { it.quantity.toLong() * it.unitPriceMinor }
-            val totalPayments = customerPayments.sumOf { it.amountMinor }
+            val totalPayments = customerSales.sumOf { it.paidAmountMinor } +
+                customerPayments.sumOf { it.amountMinor }
 
             CustomerDetailsState(
                 customer = customer,

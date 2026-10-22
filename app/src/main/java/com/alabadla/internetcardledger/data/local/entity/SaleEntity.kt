@@ -45,4 +45,10 @@ data class SaleEntity(
     val syncStatus: SyncStatus,
     @ColumnInfo(name = "is_deleted", defaultValue = "0")
     val isDeleted: Boolean,
+    @ColumnInfo(name = "card_type", defaultValue = "'SIX_HOURS'")
+    val cardType: CardType = CardType.SIX_HOURS,
+    @ColumnInfo(name = "payment_status", defaultValue = "'UNPAID'")
+    val paymentStatus: PaymentStatus = PaymentStatus.UNPAID,
+    @ColumnInfo(name = "paid_amount_minor", defaultValue = "0")
+    val paidAmountMinor: Long = 0L,
 )

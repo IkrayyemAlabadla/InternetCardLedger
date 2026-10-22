@@ -49,7 +49,40 @@ class LedgerMigrationTest {
         }
     }
 
+    @Test
+    @Throws(IOException::class)
+    fun migrate3To4_preservesLegacyFinancialTotalsWithoutDoubleCountingPayments() {
+        helper.createDatabase(DATABASE_V4_TEST_NAME, 3).apply {
+            execSQL(
+                """INSERT INTO sales
+                    (id, customer_id, description, quantity, unit_price_minor, sold_at, notes,
+                     created_at, updated_at, created_by_device_id, sync_status, is_deleted)
+                    VALUES ('sale-1', NULL, 'بيع قديم', 3, 2, 100, NULL, 100, 100, 'old-device', 'SYNCED', 0)
+                """.trimIndent(),
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(
+            DATABASE_V4_TEST_NAME,
+            4,
+            true,
+            LedgerDatabase.MIGRATION_3_4,
+        ).use { database ->
+            database.query(
+                "SELECT description, card_type, payment_status, paid_amount_minor FROM sales WHERE id = 'sale-1'",
+            ).use { cursor ->
+                assertEquals(true, cursor.moveToFirst())
+                assertEquals("بيع قديم", cursor.getString(0))
+                assertEquals("SIX_HOURS", cursor.getString(1))
+                assertEquals("UNPAID", cursor.getString(2))
+                assertEquals(0L, cursor.getLong(3))
+            }
+        }
+    }
+
     private companion object {
         const val DATABASE_NAME = "migration-audit.db"
+        const val DATABASE_V4_TEST_NAME = "migration-sales-v4.db"
     }
 }

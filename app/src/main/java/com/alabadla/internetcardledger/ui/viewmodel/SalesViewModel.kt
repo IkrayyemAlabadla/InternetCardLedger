@@ -5,10 +5,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.alabadla.internetcardledger.data.local.entity.CardType
 import com.alabadla.internetcardledger.data.local.entity.CustomerEntity
+import com.alabadla.internetcardledger.data.local.entity.PaymentStatus
 import com.alabadla.internetcardledger.data.local.entity.SaleEntity
 import com.alabadla.internetcardledger.data.repository.CustomerRepository
 import com.alabadla.internetcardledger.data.repository.SaleRepository
+import com.alabadla.internetcardledger.domain.SalePaymentRules
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,10 +24,10 @@ import kotlinx.coroutines.launch
 
 data class SaleFormState(
     val customerId: String? = null,
-    val description: String = "",
+    val cardType: CardType = CardType.SIX_HOURS,
     val quantity: String = "1",
-    val unitPriceMinor: String = "",
-    val notes: String = "",
+    val paymentStatus: PaymentStatus = PaymentStatus.PAID,
+    val customPaidAmountMinor: String = "",
     val editingSale: SaleEntity? = null,
     val error: SaleFormError? = null,
     val isSaving: Boolean = false,
@@ -32,18 +35,17 @@ data class SaleFormState(
 )
 
 enum class SaleFormError {
-    DESCRIPTION_REQUIRED,
     QUANTITY_REQUIRED,
     QUANTITY_INVALID,
-    PRICE_REQUIRED,
     PRICE_INVALID,
+    PAID_AMOUNT_INVALID,
     SAVE_FAILED,
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SalesViewModel(
     private val saleRepository: SaleRepository,
-    customerRepository: CustomerRepository? = null,
+    private val customerRepository: CustomerRepository? = null,
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow("")
@@ -87,42 +89,59 @@ class SalesViewModel(
         selectedSaleId.value = sale.id
         _formState.value = SaleFormState(
             customerId = sale.customerId,
-            description = sale.description,
+            cardType = sale.cardType,
             quantity = sale.quantity.toString(),
-            unitPriceMinor = sale.unitPriceMinor.toString(),
-            notes = sale.notes.orEmpty(),
+            paymentStatus = sale.paymentStatus,
+            customPaidAmountMinor = sale.paidAmountMinor.toString(),
             editingSale = sale,
         )
     }
 
     fun updateCustomerId(value: String?) = updateForm { copy(customerId = value, error = null) }
-    fun updateDescription(value: String) = updateForm { copy(description = value, error = null) }
+    fun updateCardType(cardType: CardType) = updateForm { copy(cardType = cardType, error = null) }
     fun updateQuantity(value: String) = updateForm { copy(quantity = value, error = null) }
-    fun updateUnitPrice(value: String) = updateForm { copy(unitPriceMinor = value, error = null) }
-    fun updateNotes(value: String) = updateForm { copy(notes = value, error = null) }
+    fun updatePaymentStatus(status: PaymentStatus) = updateForm { copy(paymentStatus = status, error = null) }
+    fun updateCustomPaidAmount(value: String) = updateForm { copy(customPaidAmountMinor = value, error = null) }
+
+    suspend fun createAndSelectCustomer(name: String, phone: String? = null): String? {
+        val repo = customerRepository ?: return null
+        return runCatching {
+            val newCustId = repo.addCustomer(name = name, phone = phone)
+            updateCustomerId(newCustId)
+            newCustId
+        }.getOrNull()
+    }
 
     fun saveSale() {
         val current = _formState.value
         if (current.isSaving) return
 
-        val description = current.description.trim()
         val quantityText = normalizeNumber(current.quantity)
-        val priceText = normalizeNumber(current.unitPriceMinor)
         val quantity = quantityText.toIntOrNull()
-        val price = priceText.toLongOrNull()
+        val unitPrice = current.cardType.priceMinor
+        val totalAmount = if (quantity != null && quantity > 0) {
+            runCatching { SalePaymentRules.total(quantity, current.cardType) }.getOrNull()
+        } else null
+
+        val partialAmount = normalizeNumber(current.customPaidAmountMinor).toLongOrNull()
+        val paidAmount = totalAmount?.let {
+            runCatching { SalePaymentRules.paidAmount(it, current.paymentStatus, partialAmount) }.getOrNull()
+        }
+
         val error = when {
-            description.isEmpty() -> SaleFormError.DESCRIPTION_REQUIRED
             quantityText.isEmpty() -> SaleFormError.QUANTITY_REQUIRED
             quantity == null || quantity <= 0 -> SaleFormError.QUANTITY_INVALID
-            priceText.isEmpty() -> SaleFormError.PRICE_REQUIRED
-            price == null || price < 0 -> SaleFormError.PRICE_INVALID
-            runCatching { Math.multiplyExact(quantity.toLong(), price) }.isFailure -> SaleFormError.PRICE_INVALID
+            totalAmount == null -> SaleFormError.PRICE_INVALID
+            paidAmount == null -> SaleFormError.PAID_AMOUNT_INVALID
             else -> null
         }
+
         if (error != null) {
             _formState.update { it.copy(error = error) }
             return
         }
+
+        val description = current.cardType.storageDescription
 
         _formState.update { it.copy(isSaving = true, error = null) }
         viewModelScope.launch {
@@ -133,8 +152,10 @@ class SalesViewModel(
                         customerId = current.customerId,
                         description = description,
                         quantity = requireNotNull(quantity),
-                        unitPriceMinor = requireNotNull(price),
-                        notes = current.notes,
+                        unitPriceMinor = unitPrice,
+                        cardType = current.cardType,
+                        paymentStatus = current.paymentStatus,
+                        paidAmountMinor = requireNotNull(paidAmount),
                     )
                 } else {
                     saleRepository.updateSale(
@@ -142,8 +163,10 @@ class SalesViewModel(
                             customerId = current.customerId,
                             description = description,
                             quantity = requireNotNull(quantity),
-                            unitPriceMinor = requireNotNull(price),
-                            notes = current.notes,
+                            unitPriceMinor = unitPrice,
+                            cardType = current.cardType,
+                            paymentStatus = current.paymentStatus,
+                            paidAmountMinor = requireNotNull(paidAmount),
                         ),
                     )
                     editingSale.id

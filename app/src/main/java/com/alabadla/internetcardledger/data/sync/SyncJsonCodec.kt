@@ -1,8 +1,10 @@
 package com.alabadla.internetcardledger.data.sync
 
 import com.alabadla.internetcardledger.data.local.SyncStatus
+import com.alabadla.internetcardledger.data.local.entity.CardType
 import com.alabadla.internetcardledger.data.local.entity.CustomerEntity
 import com.alabadla.internetcardledger.data.local.entity.PaymentEntity
+import com.alabadla.internetcardledger.data.local.entity.PaymentStatus
 import com.alabadla.internetcardledger.data.local.entity.SaleEntity
 import org.json.JSONArray
 import org.json.JSONObject
@@ -42,6 +44,9 @@ object SyncJsonCodec {
         put("description", sale.description)
         put("quantity", sale.quantity)
         put("unitPriceMinor", sale.unitPriceMinor)
+        put("cardType", sale.cardType.name)
+        put("paymentStatus", sale.paymentStatus.name)
+        put("paidAmountMinor", sale.paidAmountMinor)
         put("soldAt", sale.soldAt)
         put("notes", sale.notes ?: JSONObject.NULL)
         put("createdAt", sale.createdAt)
@@ -53,12 +58,20 @@ object SyncJsonCodec {
 
     fun saleFromJson(jsonStr: String): SaleEntity {
         val json = JSONObject(jsonStr)
+        val cardType = CardType.valueOf(json.optString("cardType", "SIX_HOURS"))
+        val paymentStatus = PaymentStatus.valueOf(json.optString("paymentStatus", "UNPAID"))
+        val quantity = json.getInt("quantity")
+        val unitPriceMinor = json.getLong("unitPriceMinor")
+        val paidAmountMinor = if (json.has("paidAmountMinor")) json.getLong("paidAmountMinor") else 0L
         return SaleEntity(
             id = json.getString("id"),
             customerId = if (json.isNull("customerId")) null else json.getString("customerId"),
             description = json.getString("description"),
-            quantity = json.getInt("quantity"),
-            unitPriceMinor = json.getLong("unitPriceMinor"),
+            quantity = quantity,
+            unitPriceMinor = unitPriceMinor,
+            cardType = cardType,
+            paymentStatus = paymentStatus,
+            paidAmountMinor = paidAmountMinor,
             soldAt = json.getLong("soldAt"),
             notes = if (json.isNull("notes")) null else json.getString("notes"),
             createdAt = json.getLong("createdAt"),

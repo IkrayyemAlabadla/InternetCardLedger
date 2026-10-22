@@ -1,13 +1,18 @@
 package com.alabadla.internetcardledger.ui.screen
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -24,8 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,6 +37,7 @@ import com.alabadla.internetcardledger.R
 import com.alabadla.internetcardledger.data.sync.DeviceRole
 import com.alabadla.internetcardledger.ui.viewmodel.SettingsViewModel
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OnboardingScreen(viewModel: SettingsViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -42,9 +47,15 @@ fun OnboardingScreen(viewModel: SettingsViewModel) {
     var pin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
     var confirmMain by rememberSaveable { mutableStateOf(false) }
+    val finishRequester = remember { BringIntoViewRequester() }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Text(stringResource(R.string.onboarding_title), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
@@ -66,11 +77,23 @@ fun OnboardingScreen(viewModel: SettingsViewModel) {
             }
         }
         Text(stringResource(R.string.pin_create_explanation), style = MaterialTheme.typography.titleLarge)
-        PinField(stringResource(R.string.pin_new_label), pin) { pin = it }
-        PinField(stringResource(R.string.pin_confirm_label), confirmPin) { confirmPin = it }
+        SecurePinField(stringResource(R.string.pin_new_label), pin, onValueChange = { pin = it })
+        SecurePinField(
+            stringResource(R.string.pin_confirm_label),
+            confirmPin,
+            onValueChange = { confirmPin = it },
+            imeAction = ImeAction.Done,
+            keyboardActions = KeyboardActions(
+                onDone = { viewModel.completeOnboarding(name, role, pin, confirmPin) },
+            ),
+            followingRequester = finishRequester,
+        )
         Button(
             onClick = { viewModel.completeOnboarding(name, role, pin, confirmPin) },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 68.dp)
+                .bringIntoViewRequester(finishRequester),
         ) { Text(stringResource(R.string.onboarding_finish), style = MaterialTheme.typography.titleMedium) }
     }
 
@@ -88,16 +111,4 @@ fun OnboardingScreen(viewModel: SettingsViewModel) {
             confirmButton = { Button(onClick = viewModel::clearMessage) { Text(stringResource(R.string.action_ok)) } },
         )
     }
-}
-
-@Composable
-private fun PinField(label: String, value: String, onValueChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = { onValueChange(it.filter(Char::isDigit).take(8)) },
-        label = { Text(label) }, singleLine = true,
-        visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
-    )
 }

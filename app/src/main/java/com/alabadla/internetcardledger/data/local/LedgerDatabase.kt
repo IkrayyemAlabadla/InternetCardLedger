@@ -33,7 +33,7 @@ import com.alabadla.internetcardledger.data.sync.SyncSessionEntity
         SyncSessionEntity::class,
         ApprovedDeviceEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(RoomConverters::class)
@@ -139,7 +139,15 @@ abstract class LedgerDatabase : RoomDatabase() {
             }
         }
 
-        private val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `sales` ADD COLUMN `card_type` TEXT NOT NULL DEFAULT 'SIX_HOURS'")
+                db.execSQL("ALTER TABLE `sales` ADD COLUMN `payment_status` TEXT NOT NULL DEFAULT 'UNPAID'")
+                db.execSQL("ALTER TABLE `sales` ADD COLUMN `paid_amount_minor` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 
         @Volatile
         private var instance: LedgerDatabase? = null

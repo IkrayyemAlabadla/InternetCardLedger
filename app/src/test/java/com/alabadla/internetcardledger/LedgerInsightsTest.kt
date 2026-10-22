@@ -3,6 +3,8 @@ package com.alabadla.internetcardledger
 import com.alabadla.internetcardledger.data.local.SyncStatus
 import com.alabadla.internetcardledger.data.local.entity.CustomerEntity
 import com.alabadla.internetcardledger.data.local.entity.PaymentEntity
+import com.alabadla.internetcardledger.data.local.entity.CardType
+import com.alabadla.internetcardledger.data.local.entity.PaymentStatus
 import com.alabadla.internetcardledger.data.local.entity.SaleEntity
 import com.alabadla.internetcardledger.domain.HistoryDateFilter
 import com.alabadla.internetcardledger.domain.HistoryOperation
@@ -13,6 +15,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.TimeZone
+import java.util.Calendar
 
 class LedgerInsightsTest {
     private val day = 24L * 60L * 60L * 1_000L
@@ -145,6 +148,55 @@ class LedgerInsightsTest {
         assertFalse(lastThirtyDays.any { it.recordId == "old" })
     }
 
+    @Test
+    fun calculate_includesPaidUnpaidAndPartialSaleAmountsWithoutFloatingPoint() {
+        val overview = LedgerInsights.calculate(
+            customers = emptyList(),
+            sales = listOf(
+                sale("paid", null, quantity = 3, unitPriceMinor = 2L, paymentStatus = PaymentStatus.PAID, paidAmountMinor = 6L),
+                sale("unpaid", null, quantity = 4, unitPriceMinor = 1L, paymentStatus = PaymentStatus.UNPAID, paidAmountMinor = 0L),
+                sale("partial", null, quantity = 5, unitPriceMinor = 2L, paymentStatus = PaymentStatus.PARTIALLY_PAID, paidAmountMinor = 3L),
+            ),
+            payments = emptyList(),
+        )
+
+        assertEquals(20L, overview.summary.totalSalesMinor)
+        assertEquals(9L, overview.summary.totalPaymentsMinor)
+        assertEquals(11L, overview.summary.outstandingBalanceMinor)
+        assertEquals(PaymentStatus.PARTIALLY_PAID, overview.allHistory.first { it.recordId == "partial" }.paymentStatus)
+    }
+
+    @Test
+    fun filterHistory_combinesTextAndExactLocalDateAcrossDstBoundary() {
+        val zone = TimeZone.getTimeZone("America/New_York")
+        fun instant(year: Int, month: Int, day: Int, hour: Int, minute: Int = 0) =
+            Calendar.getInstance(zone).apply {
+                clear()
+                set(year, month, day, hour, minute)
+            }.timeInMillis
+
+        val selectedDate = instant(2024, Calendar.MARCH, 10, 12)
+        val records = listOf(
+            sale("matching", null, description = "بطاقة ليلية", updatedAt = instant(2024, Calendar.MARCH, 10, 23, 59)),
+            sale("wrong-text", null, description = "بطاقة صباحية", updatedAt = instant(2024, Calendar.MARCH, 10, 1)),
+            sale("previous-day", null, description = "بطاقة ليلية", updatedAt = instant(2024, Calendar.MARCH, 9, 23, 59)),
+            sale("next-day", null, description = "بطاقة ليلية", updatedAt = instant(2024, Calendar.MARCH, 11, 0)),
+        )
+        val history = LedgerInsights.calculate(emptyList(), records, emptyList()).allHistory
+
+        val filtered = LedgerInsights.filterHistory(
+            records = history,
+            query = "ليلية",
+            type = HistoryRecordType.SALE,
+            dateFilter = HistoryDateFilter.ALL,
+            selectedCalendarDate = selectedDate,
+            now = selectedDate,
+            timeZone = zone,
+        )
+
+        assertEquals(listOf("matching"), filtered.map { it.recordId })
+    }
+
     private fun customer(
         id: String,
         name: String = id,
@@ -170,6 +222,8 @@ class LedgerInsightsTest {
         unitPriceMinor: Long = 100L,
         updatedAt: Long = now - 2_000L,
         isDeleted: Boolean = false,
+        paymentStatus: PaymentStatus = PaymentStatus.UNPAID,
+        paidAmountMinor: Long = 0L,
     ) = SaleEntity(
         id = id,
         customerId = customerId,
@@ -183,6 +237,9 @@ class LedgerInsightsTest {
         createdByDeviceId = "device",
         syncStatus = SyncStatus.PENDING,
         isDeleted = isDeleted,
+        cardType = if (unitPriceMinor == 2L) CardType.TWELVE_HOURS else CardType.SIX_HOURS,
+        paymentStatus = paymentStatus,
+        paidAmountMinor = paidAmountMinor,
     )
 
     private fun payment(

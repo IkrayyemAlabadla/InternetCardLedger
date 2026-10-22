@@ -3,6 +3,7 @@ package com.alabadla.internetcardledger.domain
 import com.alabadla.internetcardledger.data.local.SyncStatus
 import com.alabadla.internetcardledger.data.local.entity.CustomerEntity
 import com.alabadla.internetcardledger.data.local.entity.PaymentEntity
+import com.alabadla.internetcardledger.data.local.entity.PaymentStatus
 import com.alabadla.internetcardledger.data.local.entity.SaleEntity
 import java.util.Calendar
 import java.util.TimeZone
@@ -38,6 +39,7 @@ data class HistoryRecord(
     val updatedAt: Long,
     val isPending: Boolean,
     val isDeleted: Boolean,
+    val paymentStatus: PaymentStatus? = null,
 )
 
 data class DashboardSummary(
@@ -73,9 +75,15 @@ object LedgerInsights {
         val totalSales = activeSales.fold(0L) { total, sale ->
             Math.addExact(total, saleTotal(sale))
         }
-        val totalPayments = activePayments.fold(0L) { total, payment ->
+
+        val salePayments = activeSales.fold(0L) { total, sale ->
+            Math.addExact(total, sale.paidAmountMinor)
+        }
+        val standalonePayments = activePayments.fold(0L) { total, payment ->
             Math.addExact(total, payment.amountMinor)
         }
+        val totalPayments = Math.addExact(salePayments, standalonePayments)
+
         val customerNames = customers.associate { it.id to it.name }
 
         val history = buildList {
@@ -108,6 +116,7 @@ object LedgerInsights {
                         updatedAt = sale.updatedAt,
                         isPending = sale.syncStatus != SyncStatus.SYNCED,
                         isDeleted = sale.isDeleted,
+                        paymentStatus = sale.paymentStatus,
                     ),
                 )
             }
@@ -158,20 +167,27 @@ object LedgerInsights {
         query: String,
         type: HistoryRecordType,
         dateFilter: HistoryDateFilter,
+        selectedCalendarDate: Long? = null,
         now: Long,
         timeZone: TimeZone = TimeZone.getDefault(),
     ): List<HistoryRecord> {
         val normalizedQuery = query.trim()
-        val earliestTimestamp = when (dateFilter) {
-            HistoryDateFilter.ALL -> Long.MIN_VALUE
-            HistoryDateFilter.TODAY -> startOfDay(now, timeZone)
-            HistoryDateFilter.LAST_7_DAYS -> now - (7L * DAY_MILLIS)
-            HistoryDateFilter.LAST_30_DAYS -> now - (30L * DAY_MILLIS)
+
+        val (startRange, endExclusive) = if (selectedCalendarDate != null) {
+            localDateRange(selectedCalendarDate, timeZone)
+        } else {
+            val start = when (dateFilter) {
+                HistoryDateFilter.ALL -> Long.MIN_VALUE
+                HistoryDateFilter.TODAY -> startOfDay(now, timeZone)
+                HistoryDateFilter.LAST_7_DAYS -> now - (7L * DAY_MILLIS)
+                HistoryDateFilter.LAST_30_DAYS -> now - (30L * DAY_MILLIS)
+            }
+            Pair(start, if (now == Long.MAX_VALUE) Long.MAX_VALUE else now + 1L)
         }
 
         return records.filter { record ->
             val matchesType = type == HistoryRecordType.ALL || record.type == type
-            val matchesDate = record.updatedAt >= earliestTimestamp && record.updatedAt <= now
+            val matchesDate = record.updatedAt >= startRange && record.updatedAt < endExclusive
             val matchesQuery = normalizedQuery.isEmpty() || listOfNotNull(
                 record.title,
                 record.relatedName,
@@ -200,4 +216,13 @@ object LedgerInsights {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
+
+    internal fun localDateRange(timestamp: Long, timeZone: TimeZone): Pair<Long, Long> {
+        val start = startOfDay(timestamp, timeZone)
+        val endExclusive = Calendar.getInstance(timeZone).apply {
+            timeInMillis = start
+            add(Calendar.DAY_OF_MONTH, 1)
+        }.timeInMillis
+        return start to endExclusive
+    }
 }

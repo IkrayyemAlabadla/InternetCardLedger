@@ -3,9 +3,12 @@ package com.alabadla.internetcardledger.data.repository
 import com.alabadla.internetcardledger.data.DeviceIdProvider
 import com.alabadla.internetcardledger.data.local.SyncStatus
 import com.alabadla.internetcardledger.data.local.dao.SaleDao
+import com.alabadla.internetcardledger.data.local.entity.CardType
+import com.alabadla.internetcardledger.data.local.entity.PaymentStatus
 import com.alabadla.internetcardledger.data.local.entity.SaleEntity
 import com.alabadla.internetcardledger.data.sync.SyncEngine
 import com.alabadla.internetcardledger.data.sync.SyncJsonCodec
+import com.alabadla.internetcardledger.domain.SalePaymentRules
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
 
@@ -35,13 +38,19 @@ class SaleRepository(
         description: String,
         quantity: Int,
         unitPriceMinor: Long,
+        cardType: CardType = CardType.SIX_HOURS,
+        paymentStatus: PaymentStatus = PaymentStatus.PAID,
+        paidAmountMinor: Long = quantity.toLong() * unitPriceMinor,
         soldAt: Long = currentTimeMillis(),
         notes: String? = null,
     ): String {
         require(description.isNotBlank()) { "Sale description cannot be blank" }
         require(quantity > 0) { "Sale quantity must be positive" }
         require(unitPriceMinor >= 0) { "Unit price cannot be negative" }
-        Math.multiplyExact(quantity.toLong(), unitPriceMinor)
+        val total = Math.multiplyExact(quantity.toLong(), unitPriceMinor)
+        require(SalePaymentRules.isConsistent(total, paymentStatus, paidAmountMinor)) {
+            "Payment status and paid amount are inconsistent"
+        }
         val timestamp = currentTimeMillis()
         val id = newId()
         val sale = SaleEntity(
@@ -50,6 +59,9 @@ class SaleRepository(
             description = description.trim(),
             quantity = quantity,
             unitPriceMinor = unitPriceMinor,
+            cardType = cardType,
+            paymentStatus = paymentStatus,
+            paidAmountMinor = paidAmountMinor,
             soldAt = soldAt,
             notes = notes?.trim()?.takeIf(String::isNotEmpty),
             createdAt = timestamp,
@@ -67,7 +79,10 @@ class SaleRepository(
         require(sale.description.isNotBlank()) { "Sale description cannot be blank" }
         require(sale.quantity > 0) { "Sale quantity must be positive" }
         require(sale.unitPriceMinor >= 0) { "Unit price cannot be negative" }
-        Math.multiplyExact(sale.quantity.toLong(), sale.unitPriceMinor)
+        val total = Math.multiplyExact(sale.quantity.toLong(), sale.unitPriceMinor)
+        require(SalePaymentRules.isConsistent(total, sale.paymentStatus, sale.paidAmountMinor)) {
+            "Payment status and paid amount are inconsistent"
+        }
         val updated = sale.copy(
             description = sale.description.trim(),
             notes = sale.notes?.trim()?.takeIf(String::isNotEmpty),

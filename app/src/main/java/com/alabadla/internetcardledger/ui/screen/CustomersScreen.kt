@@ -427,6 +427,7 @@ private fun CustomerDetails(
                         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(text = sale.description, style = MaterialTheme.typography.titleMedium)
+                                PaymentStatusChip(sale.paymentStatus)
                                 val unitPriceStr = CurrencyFormatter.formatMoney(sale.unitPriceMinor)
                                 Text(
                                     text = "الكمية: ${sale.quantity} — سعر الوحدة: $unitPriceStr",

@@ -13,6 +13,8 @@ import com.alabadla.internetcardledger.data.local.SyncStatus
 import com.alabadla.internetcardledger.data.local.entity.CustomerEntity
 import com.alabadla.internetcardledger.data.local.entity.PaymentEntity
 import com.alabadla.internetcardledger.data.local.entity.SaleEntity
+import com.alabadla.internetcardledger.data.local.entity.CardType
+import com.alabadla.internetcardledger.data.local.entity.PaymentStatus
 import com.alabadla.internetcardledger.data.repository.BackupRepository
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -56,7 +58,7 @@ class BackupRepositoryTest {
         val bytes = ByteArrayOutputStream().also { repository.export(it) }.toByteArray()
         val restored = repository.inspect(ByteArrayInputStream(bytes))
 
-        assertEquals(1, restored.version)
+        assertEquals(2, restored.version)
         assertEquals(3, restored.recordCount)
         assertTrue(restored.customers.single().isDeleted)
         assertEquals(customer.id, restored.sales.single().customerId)
@@ -179,9 +181,12 @@ class BackupRepositoryTest {
 
     private fun sale(id: String, customerId: String?, updatedAt: Long) = SaleEntity(
         id = id, customerId = customerId, description = "بطاقة", quantity = 2,
-        unitPriceMinor = 1_000L, soldAt = 20L, notes = null,
+        unitPriceMinor = 2L, soldAt = 20L, notes = null,
         createdAt = 10L, updatedAt = updatedAt, createdByDeviceId = DEVICE,
         syncStatus = SyncStatus.PENDING, isDeleted = false,
+        cardType = CardType.TWELVE_HOURS,
+        paymentStatus = PaymentStatus.PARTIALLY_PAID,
+        paidAmountMinor = 1L,
     )
 
     private fun payment(id: String, customerId: String, saleId: String?, updatedAt: Long) = PaymentEntity(
